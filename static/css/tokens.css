@@ -1,0 +1,73 @@
+:root {
+  /* Marca */
+  --verde: #347659;            /* wordmark, botão Home, pill ativa, links, aba ativa, foco */
+  --verde-escuro: #285c45;     /* hover de link e botão */
+  --verde-selecao: #d5ece1;    /* ::selection */
+
+  /* Fundos e superfícies */
+  --fundo: #f4f7f9;            /* body */
+  --fundo-transparente: rgba(244, 247, 249, 0); /* --fundo com alfa 0: início do fade da faixa */
+  --faixa: #f8fafc;            /* base da faixa do topo */
+  --faixa-grade: rgba(52, 118, 89, .04); /* linhas da grade 2px/2px */
+  --superficie: #ffffff;       /* painéis, campo de busca, pill inativa */
+  --hover-linha: #f6f9f8;      /* hover de linha de resultado e de tabela */
+
+  /* Texto */
+  --texto: #151b26;            /* principal, h1, valores */
+  --texto-2: #4a5567;          /* secundário: subtítulo, meta, lead */
+  --texto-3: #5f6b80;          /* terciário: rótulos, contagens, datas, placeholders (4,9:1 no fundo) */
+  --nav: #4a4e54;              /* links da nav */
+  --desabilitado: #aeb6c1;     /* controles desabilitados (isentos de contraste) */
+  --sobre-verde: #ffffff;      /* texto sobre --verde (5,4:1) */
+
+  /* Bordas */
+  --borda: #cdd5e0;            /* campo de busca, pill inativa, inputs */
+  --divisor: #e3e8ee;          /* bordas de painel, divisores de linha */
+
+  /* Alerta (único tom semântico) */
+  --alerta: #b42318;           /* texto de estado negativo (6,6:1) */
+  --alerta-fundo: #fef3f2;     /* fundo do aviso de sanção vigente */
+  --alerta-borda: #fecdca;     /* borda do aviso de sanção vigente */
+
+  /* Marca do governo */
+  --logo-gov: #4a4b4b;
+
+  /* Tipografia */
+  --fonte: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --peso-regular: 400;
+  --peso-medio: 500;
+  --peso-forte: 600;
+
+  /* Escala tipográfica: tamanho / entrelinha */
+  --t13: 13px; --l13: 18px;    /* datas na linha, cabeçalho de tabela, rodapé, contagens pequenas */
+  --t14: 14px; --l14: 20px;    /* meta de resultado, células, rótulos da ficha */
+  --t15: 15px; --l15: 22px;    /* corpo, valores da ficha, valor na linha de resultado */
+  --t16: 16px; --l16: 24px;    /* nav, filtros, título de resultado (500) */
+  --t17: 17px; --l17: 26px;    /* lead, campo de busca, h2 (600) */
+  --t18: 18px; --l18: 28px;    /* subtítulo da home */
+  --t20: 20px; --l20: 28px;    /* valor de "números" (600) */
+  --t28: 28px; --l28: 36px;    /* h1 de detalhe (600); 24/32 no mobile */
+
+  /* Espaçamento */
+  --e1: 4px; --e2: 8px; --e3: 12px; --e4: 16px;
+  --e5: 24px; --e6: 32px; --e7: 48px; --e8: 64px;
+
+  /* Raios */
+  --r8: 8px;                   /* botões, nav ativa, foco, selects de ordenação */
+  --r12: 12px;                 /* campo de busca, painéis, aviso */
+  --r-pill: 999px;             /* pills de fonte */
+
+  /* Sombras (as únicas permitidas) */
+  --sombra-campo: 0 1px 2px rgba(16, 24, 40, .05);
+  --sombra-pill: 0 1px 3px rgba(52, 118, 89, .25);
+  --sombra-menu: 0 8px 24px rgba(16, 24, 40, .12), 0 1px 2px rgba(16, 24, 40, .06); /* painel de menu flutuante */
+  --anel-foco: 0 0 0 3px rgba(52, 118, 89, .30);
+
+  /* Layout */
+  --largura: 1040px;           /* coluna de conteúdo (resultados e detalhes) */
+  --largura-home: 680px;       /* campo de busca e filtros da home */
+  --gutter: 16px;              /* ≤640px; 24px de 641 a 960; 32px acima de 960 */
+  --altura-faixa: 80px;        /* 64px no mobile */
+}
+@media (min-width: 641px) { :root { --gutter: 24px; } }
+@media (min-width: 961px) { :root { --gutter: 32px; } }

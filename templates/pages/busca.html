@@ -1,0 +1,96 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% import "_linhas.html" as L %}
+{% block title %}{{ q }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/busca.css">{% endblock %}
+{% block body_class %}pagina-busca{% endblock %}
+{% block faixa %}{{ ui.faixa("busca") }}{% endblock %}
+{% block conteudo %}
+{%- set hrefs = {} %}{% for a in abas %}{% set _ = hrefs.update({a.slug: a.href}) %}{% endfor %}
+{%- set feminino = cfg and cfg.genero == "f" %}
+<div class="coluna resultados">
+  <h1 class="visualmente-oculto">Resultados para "{{ q }}" no SIGA</h1>
+  {{ ui.fontes() }}
+  {{ ui.busca(q, "resultados") }}
+
+  {%- if exatas %}
+  <div class="correspondencia">
+    {% call ui.secao("Correspondência exata", id="correspondencia") %}
+    <div class="painel"><ol class="lista">
+      {%- for r in exatas %}{{ L.linha_resultado(r) }}{% endfor %}
+    </ol></div>
+    {% endcall %}
+  </div>
+  {%- endif %}
+
+  {{ ui.abas(abas, tipo) }}
+
+  {%- if total_geral or filtros_ativos %}
+  <form action="/siga/busca" method="get" data-autoenvio data-limpar-vazios>
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="tipo" value="{{ tipo }}">
+    {%- set com_periodo = tipo == "tudo" or cfg.periodo %}
+    {%- if not com_periodo %}
+    {%- if filtros.periodo == "personalizado" %}
+    {%- for k in ("de", "ate") if filtros[k] %}<input type="hidden" name="{{ k }}" value="{{ filtros[k] }}">{% endfor %}
+    {%- endif %}
+    {%- for k in ("periodo", "orgao") if filtros[k] and filtros[k] != "personalizado" %}<input type="hidden" name="{{ k }}" value="{{ filtros[k] }}">{% endfor %}
+    {%- endif %}
+    <div class="filtros">
+      {%- if com_periodo %}
+      {{ ui.periodo(filtros.periodo, filtros.de, filtros.ate, anos, periodo_rotulo) }}
+      {{ ui.menu("orgao", "Órgão", orgaos, filtros.orgao, padrao="Todos os órgãos", buscavel=True, largo=True) }}
+      {%- endif %}
+      {%- if situacoes %}
+      {{ ui.menu("situacao", situacoes.rotulo, opcoes(situacoes.opcoes), filtros.situacao,
+                 padrao="Qualquer tipo" if situacoes.rotulo.startswith("Tipo") else "Qualquer situação") }}
+      {%- endif %}
+      {%- if filtros_ativos %}
+      {{ ui.limpar_filtros(limpar_href) }}
+      {%- endif %}
+    </div>
+    {%- if tipo != "tudo" and total %}
+    <div class="contagem">
+      <p class="contagem__texto">{{ plural(total, cfg.sing, cfg.plur) }}</p>
+      {%- if ordens|length > 1 %}
+      <div class="ordem">
+        <span class="ordem__rotulo" aria-hidden="true">Ordenar por</span>
+        {{ ui.menu("ordem", "Ordenar por", opcoes(ordens), filtros.ordem, direita=True) }}
+      </div>
+      {%- endif %}
+    </div>
+    {%- endif %}
+  </form>
+  {%- endif %}
+
+  {%- if not total_geral and not filtros_ativos %}
+  {{ ui.vazio('Nenhum resultado para "' ~ q ~ '" no SIGA.') }}
+  {%- elif tipo == "tudo" %}
+  {%- if grupos %}
+  <div class="grupos">
+    {%- for t, (linhas, n) in grupos.items() %}
+    {% call ui.secao(tipos[t].rotulo, n, id="grupo-" ~ t) %}
+    <div class="painel"><ol class="lista">
+      {%- for r in linhas %}{{ L.linha_resultado(r) }}{% endfor %}
+    </ol></div>
+    {{ ui.ver_todos(hrefs[t], n, tipos[t].plur, tipos[t].genero, limite=linhas|length) }}
+    {% endcall %}
+    {%- endfor %}
+  </div>
+  {%- else %}
+  {{ ui.vazio("Nenhum resultado com os filtros escolhidos.", [("Remover filtros", limpar_href)]) }}
+  {%- endif %}
+  {%- elif linhas %}
+  <div class="painel"><ol class="lista">
+    {%- for r in linhas %}{{ L.linha_resultado(r) }}{% endfor %}
+  </ol></div>
+  {{ ui.paginacao(pag, request) }}
+  {%- elif filtros_ativos %}
+  {{ ui.vazio(("Nenhuma " if feminino else "Nenhum ") ~ cfg.sing ~ " com os filtros escolhidos.", [("Remover filtros", limpar_href)]) }}
+  {%- else %}
+  {%- set acoes = [] %}
+  {%- for a in abas if a.n %}{% set _ = acoes.append((a.rotulo ~ " (" ~ a.n|num ~ ")", a.href)) %}{% endfor %}
+  {{ ui.vazio(("Nenhuma " ~ cfg.sing ~ ' encontrada para "' if feminino else "Nenhum " ~ cfg.sing ~ ' encontrado para "') ~ q ~ '".', acoes) }}
+  {%- endif %}
+</div>
+{% endblock %}

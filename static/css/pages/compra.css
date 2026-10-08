@@ -1,0 +1,9 @@
+/* Página compra: larguras de coluna das tabelas. Só tokens, até 80 linhas. Não redefine componentes. */
+
+/* Fornecedor: largura mínima para o nome não quebrar palavra a palavra ao lado do item */
+.tabela--compra td.compra__fornecedor { min-width: 200px; }
+
+/* Identificador, data e situação ficam numa linha só */
+.tabela--compra .compra__contrato,
+.tabela--compra .compra__data,
+.tabela--compra .compra__situacao { white-space: nowrap; }

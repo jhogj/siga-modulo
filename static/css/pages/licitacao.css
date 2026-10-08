@@ -1,0 +1,6 @@
+/* Página licitação: só larguras de coluna das tabelas. Só tokens. Colunas curtas usam td.curta (base.css). */
+.tabela--itens .vencedor { min-width: 180px; max-width: 260px; }
+.tabela--participantes td:first-child { min-width: 240px; }
+@media (max-width: 640px) {
+  .tabela--participantes td:first-child { min-width: 180px; }
+}

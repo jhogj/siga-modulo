@@ -1,0 +1,97 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% import "_linhas.html" as L %}
+{% set rotulo = item.artigo if item.artigo is presente else (item.descricao or "")|truncate(80, False, "", 0) %}
+{% block title %}{{ rotulo }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/item.css">{% endblock %}
+{% block body_class %}pagina-item{% endblock %}
+
+{#- Rótulo e destino do registro de preço por origem. -#}
+{%- macro origem_rotulo(r) -%}
+{%- if r.origem == "contratos" %}Contrato {{ r.ref }}
+{%- elif r.origem == "compras" %}Compra {{ r.ref|processo }}
+{%- elif r.origem == "licitacoes" %}Licitação {{ r.ref }}
+{%- elif r.origem == "atas" %}Ata {{ r.ref }}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro origem_href(r) -%}
+{%- if r.origem == "contratos" %}{{ url_contrato(r.chave) }}
+{%- elif r.origem == "compras" %}{{ url_compra(r.chave) }}
+{%- elif r.origem == "licitacoes" %}{{ url_licitacao(r.chave) }}
+{%- elif r.origem == "atas" %}{{ url_ata(r.chave) }}
+{%- endif -%}
+{%- endmacro -%}
+
+{% block conteudo %}
+<div class="coluna">
+  {%- set trilha = [("SIGA", "/siga")] + ([('Resultados para "' ~ busca.q ~ '"', busca.href)] if busca else []) + [(rotulo, None)] %}
+  {{ ui.trilha(trilha) }}
+  {{ ui.cabecalho(rotulo,
+       [item.tipo|tipo_item,
+        ("Cód. " ~ item.cod_item) if item.cod_item is presente else "",
+        "Item sustentável" if item.sustentavel == "S" else ""],
+       item.descricao) }}
+
+  {%- if total %}
+  {%- set nota = (origem_rotulo(ultimo)|trim ~ ", " ~ ultimo.dt|data) if ultimo else "" %}
+  {{ ui.numeros([
+       {"rotulo": "Registros de preço", "valor": total|num},
+       {"rotulo": "Último preço registrado", "valor": ultimo.vu|moeda if ultimo else "", "nota": nota},
+     ]) }}
+  {%- endif %}
+
+  {%- set classificacao = [item.tipo, item.familia, item.classe]|select("presente")|join(" › ") %}
+  {{ ui.ficha([("Classificação", classificacao), ("Código", item.cod_item)]) }}
+
+  {%- if not total %}
+  <div class="item-vazio">{{ ui.vazio("Nenhum registro de preço para este item no SIGA.") }}</div>
+  {%- else %}
+  {%- set visiveis = {"orgao": false, "fornecedor": false, "qtd": false, "vu": false} %}
+  {%- for r in linhas %}
+  {%- if r.unidade is presente %}{% set _ = visiveis.update({"orgao": true}) %}{% endif %}
+  {%- if r.fornecedor is presente %}{% set _ = visiveis.update({"fornecedor": true}) %}{% endif %}
+  {%- if r.qtd is presente %}{% set _ = visiveis.update({"qtd": true}) %}{% endif %}
+  {%- if r.vu is presente %}{% set _ = visiveis.update({"vu": true}) %}{% endif %}
+  {%- endfor %}
+  {% call ui.secao("Preços registrados", id="precos") %}
+  {%- if origens|length > 1 %}
+  {%- set abas = [{"slug": "todos", "rotulo": "Todos", "n": total, "href": url_with(request, origem=None, pagina=None)}] %}
+  {%- for o in origens %}{% set _ = abas.append({"slug": o, "rotulo": rotulos_origem[o], "n": contagens[o], "href": url_with(request, origem=o, pagina=None)}) %}{% endfor %}
+  <div class="item-origens">{{ ui.abas(abas, origem or "todos", variante="segmentos", rotulo="Origem dos registros") }}</div>
+  {%- endif %}
+  <div class="painel painel--tabela"><table class="tabela item-precos">
+    <caption class="visualmente-oculto">Preços registrados{% if origem %} em {{ rotulos_origem[origem]|lower }}{% endif %}</caption>
+    <thead><tr>
+      <th scope="col">Data</th>
+      <th scope="col">Origem</th>
+      {%- if visiveis.orgao %}<th scope="col">Órgão</th>{% endif %}
+      {%- if visiveis.fornecedor %}<th scope="col">Fornecedor</th>{% endif %}
+      {%- if visiveis.qtd %}<th scope="col" class="num">Quantidade</th>{% endif %}
+      {%- if visiveis.vu %}<th scope="col" class="num">Valor unitário</th>{% endif %}
+    </tr></thead>
+    <tbody>
+      {%- for r in linhas %}
+      {%- set href = origem_href(r)|trim %}
+      <tr>
+        <td class="item-precos__data">{{ r.dt|data }}</td>
+        <td class="item-precos__origem">{% if href %}<a href="{{ href }}">{{ origem_rotulo(r) }}</a>{% else %}{{ origem_rotulo(r) }}{% endif %}</td>
+        {%- if visiveis.orgao %}<td>{{ L.orgao(r.unidade) }}</td>{% endif %}
+        {%- if visiveis.fornecedor %}
+        <td class="item-precos__fornecedor">
+          {%- if r.fornecedor is presente %}{% set f = url_fornecedor(r.cnpj_norm) %}
+          {%- if f %}<a href="{{ f }}">{{ r.fornecedor }}</a>{% else %}{{ r.fornecedor }}{% endif %}
+          {%- if r.fornecedor_mais %} e mais {{ r.fornecedor_mais|num }}{% endif %}
+          {%- endif %}</td>
+        {%- endif %}
+        {%- if visiveis.qtd %}<td class="num">{% if r.qtd is presente %}{{ r.qtd|qtd_unidade(r.un) }}{% endif %}</td>{% endif %}
+        {%- if visiveis.vu %}<td class="num">{{ r.vu|moeda }}</td>{% endif %}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table></div>
+  {{ ui.paginacao(pag, request) }}
+  {% endcall %}
+  {%- endif %}
+</div>
+{% endblock %}

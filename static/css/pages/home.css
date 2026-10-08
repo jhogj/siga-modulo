@@ -1,0 +1,28 @@
+/* Home (/siga): composição centralizada como no Radar RJ. Só tokens. */
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: calc(var(--largura) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: calc(var(--e7) + var(--e5)) var(--gutter) 0;
+  text-align: center;
+}
+.home__marca { width: min(360px, 100%); height: auto; }
+.home__subtitulo {
+  max-width: 720px;
+  margin-top: var(--e4);
+  text-wrap: balance;
+  color: var(--texto-2);
+  font-size: var(--t18);
+  line-height: var(--l18);
+}
+.home .fontes { justify-content: center; margin-top: var(--e6); }
+.home__form { width: 100%; max-width: var(--largura-home); margin-top: var(--e6); }
+.home .filtros { justify-content: center; margin-bottom: var(--e4); }
+
+@media (max-width: 640px) {
+  .home { padding-top: var(--e7); }
+  .home__marca { width: 280px; }  /* 280×43 (mobile) */
+  .home__subtitulo { font-size: var(--t16); line-height: var(--l16); }
+}

@@ -1,0 +1,6 @@
+/* Página contrato: só ajustes de colunas das tabelas. Só tokens; não redefine componentes.
+   Identificadores, datas, exercício e ata não quebram via td.curta (base.css). */
+
+/* Natureza da despesa ocupa o resto da linha; a descrição do item, o espaço que sobrar */
+.tabela--notas td:last-child { min-width: 240px; }
+.tabela--itens td.longo { width: 100%; }

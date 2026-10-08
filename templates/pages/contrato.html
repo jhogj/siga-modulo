@@ -1,0 +1,163 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% import "_linhas.html" as L %}
+{%- set c = contrato %}
+{%- set rotulo = "Contrato " ~ c.contratacao %}
+{%- set url_pagina = url_contrato(c.contratacao) %}
+
+{#- Tabela de itens contratados (página e lista completa). colunas: {qtd, unitario, total, ata, aditivo}. -#}
+{%- macro tabela_itens(itens, colunas, legenda) -%}
+<div class="painel painel--tabela"><table class="tabela tabela--itens">
+  <caption class="visualmente-oculto">{{ legenda }}</caption>
+  <thead><tr>
+    <th scope="col">Item</th>
+    {%- if colunas.qtd %}<th scope="col" class="num">Quantidade</th>{% endif %}
+    {%- if colunas.unitario %}<th scope="col" class="num">Valor unitário</th>{% endif %}
+    {%- if colunas.total %}<th scope="col" class="num">Valor total</th>{% endif %}
+    {%- if colunas.ata %}<th scope="col">Ata</th>{% endif %}
+    {%- if colunas.aditivo %}<th scope="col" class="num">Aditivado ou suprimido</th>{% endif %}
+  </tr></thead>
+  <tbody>
+    {%- for i in itens %}
+    <tr>
+      <td class="longo">{% if url_item(i.id_item) %}<a class="clamp2" href="{{ url_item(i.id_item) }}" title="{{ i.item }}">{{ i.item }}</a>{% else %}{{ i.item }}{% endif %}</td>
+      {%- if colunas.qtd %}<td class="num">{{ i.qtd_original|qtd }}</td>{% endif %}
+      {%- if colunas.unitario %}<td class="num">{{ i.vl_unit_original|moeda }}</td>{% endif %}
+      {%- if colunas.total %}<td class="num">{{ i.total|moeda }}</td>{% endif %}
+      {%- if colunas.ata %}
+      <td class="curta">{% if i.ata_ok is not none %}<a href="{{ url_ata(i.ata_ok) }}">{{ i.numero_ata if i.numero_ata is presente else "Ata de registro de preços" }}</a>{% endif %}</td>
+      {%- endif %}
+      {%- if colunas.aditivo %}
+      <td class="num">{% if i.total_aditivada_suprimida %}{{ i.total_aditivada_suprimida|moeda }}{% endif %}</td>
+      {%- endif %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{#- Tabela de notas de autorização de despesa. Fonte de recurso e valor ficam de fora. colunas: {emissao}. -#}
+{%- macro tabela_notas(notas, colunas, legenda) -%}
+<div class="painel painel--tabela"><table class="tabela tabela--notas">
+  <caption class="visualmente-oculto">{{ legenda }}</caption>
+  <thead><tr>
+    <th scope="col">Nota</th>
+    {%- if colunas.emissao %}<th scope="col">Emissão</th>{% endif %}
+    <th scope="col">Exercício</th>
+    <th scope="col">Natureza da despesa</th>
+  </tr></thead>
+  <tbody>
+    {%- for n in notas %}
+    <tr>
+      <td class="curta">{{ n.chave_siga }}</td>
+      {%- if colunas.emissao %}<td class="curta">{{ n.dt_emissao_nadsiga|data }}</td>{% endif %}
+      <td class="curta">{{ n.ano }}</td>
+      <td>{{ n.natureza|natureza_despesa }}</td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{% block title %}{{ titulo_secao ~ " – " ~ rotulo if secao is not none else rotulo }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/contrato.css">{% endblock %}
+{% block body_class %}pagina-contrato{% endblock %}
+{% block conteudo %}
+<div class="coluna">
+{%- if secao is not none %}
+  {#- Modo seção: lista completa de itens ou notas, 25 por página -#}
+  {{ ui.trilha([("SIGA", "/siga"), (rotulo, url_pagina), (titulo_secao, None)]) }}
+  {%- set h1 %}{{ titulo_secao }}{% if pag.total %}<span class="secao__n">{{ pag.total|num }}</span>{% endif %}{% endset %}
+  {{ ui.cabecalho(h1, [rotulo, c.unidade]) }}
+  {%- if secao == "itens" %}{{ tabela_itens(linhas, colunas, titulo_secao) }}{% else %}{{ tabela_notas(linhas, colunas, titulo_secao) }}{% endif %}
+  {{ ui.paginacao(pag, request) }}
+{%- else %}
+  {%- set trilha = [("SIGA", "/siga")] + ([('Resultados para "' ~ busca.q ~ '"', busca.href)] if busca else []) + [(rotulo, None)] %}
+  {{ ui.trilha(trilha) }}
+  {{ ui.cabecalho(rotulo,
+       [ui.status(situacao_contrato(c.status_contratacao, c.dt_fim_vigencia)), c.tipo_aquisicao|limpo|modalidade, c.regime_juridico],
+       c.objeto) }}
+
+  {#- Números: execução financeira só entra se algum dos três existir; nulo vira "Não informado" -#}
+  {%- set execucao = c.valor_total_empenhado is not none or c.valor_total_liquidado is not none or c.valor_total_pago is not none %}
+  {%- set nums = [{"rotulo": "Valor do contrato", "valor": c.valor_total_contrato|moeda}] %}
+  {%- if execucao %}
+  {%- for rot, v in [("Empenhado", c.valor_total_empenhado), ("Liquidado", c.valor_total_liquidado), ("Pago", c.valor_total_pago)] %}
+  {%- set _ = nums.append({"rotulo": rot, "valor": v|moeda if v is not none else "Não informado"}) %}
+  {%- endfor %}
+  {%- endif %}
+  {{ ui.numeros(nums) }}
+
+  {#- Ficha -#}
+  {%- set documento = c.cpf_cnpj %}{#- nunca a chave (cnpj_norm), que pode ser "F" + ID Forn -#}
+  {%- set v_fornecedor %}
+  {%- if c.fornecedor is presente %}
+  {%- if url_fornecedor(c.cnpj_norm) %}<a href="{{ url_fornecedor(c.cnpj_norm) }}">{{ c.fornecedor }}</a>{% else %}{{ c.fornecedor }}{% endif %}
+  {%- if documento is presente %}<br><span class="sec">{{ documento|doc_rotulo }} {{ documento|doc }}</span>{% endif %}
+  {%- elif documento is presente %}
+  {%- if url_fornecedor(c.cnpj_norm) %}<a href="{{ url_fornecedor(c.cnpj_norm) }}">{{ documento|doc_rotulo }} {{ documento|doc }}</a>{% else %}{{ documento|doc_rotulo }} {{ documento|doc }}{% endif %}
+  {%- endif %}
+  {%- endset %}
+  {%- set ini, fim = c.dt_inicio_vigencia|data, c.dt_fim_vigencia|data %}
+  {%- if ini and fim %}{% set vigencia = ini ~ " a " ~ fim %}
+  {%- elif ini %}{% set vigencia = "A partir de " ~ ini %}
+  {%- elif fim %}{% set vigencia = "Até " ~ fim %}
+  {%- else %}{% set vigencia = "" %}{% endif %}
+  {{ ui.ficha([
+       ("Fornecedor", v_fornecedor),
+       ("Órgão contratante", c.unidade),
+       ("Vigência", vigencia),
+       ("Data da contratação", c.dt_contratacao|data),
+       ("Processo", c.processo|processo),
+       ("Publicação no DOERJ", c.dt_public_deorj|data),
+       ("Situação no SIGA", c.status_contratacao),
+       ("PNCP", ui.link_externo(c.url_pncp, "Ver contrato no PNCP")),
+     ]) }}
+
+  {#- Origem: licitação, compra e atas usadas -#}
+  {%- if licitacao or compra or atas %}
+  {% call ui.secao("Origem", id="origem") %}
+  <div class="painel"><ol class="lista">
+    {%- if licitacao %}
+    {%- set homologada = licitacao.dt_homologacao|data %}
+    {{ ui.linha(url_licitacao(licitacao.id_licitacao),
+         ("Licitação " ~ licitacao.licitacao) if licitacao.licitacao is presente else "Licitação",
+         meta=[licitacao.modalidade|modalidade, L.orgao(licitacao.unidade),
+               ui.status(licitacao.status, alerta_licitacao(licitacao.status))],
+         valor=licitacao.valor_total_homologado|moeda if (licitacao.valor_total_homologado or 0) > 0 else None,
+         sub=("Homologada em " ~ homologada) if homologada else None) }}
+    {%- endif %}
+    {%- if compra %}
+    {%- set aprovada = compra.dt|data %}
+    {{ ui.linha(url_compra(compra.id_processo),
+         ("Compra " ~ compra.processo|processo) if compra.processo is presente else "Compra",
+         meta=[compra.afastamento|limpo, L.orgao(compra.unidade)],
+         valor=compra.valor|moeda if (compra.valor or 0) > 0 else None,
+         sub=("Aprovada em " ~ aprovada) if aprovada else None) }}
+    {%- endif %}
+    {%- for a in atas %}
+    {{ ui.linha(url_ata(a.id_ata),
+         ("Ata de registro de preços " ~ a.numero_ata) if a.numero_ata is presente else "Ata de registro de preços",
+         meta=[L.orgao(a.unidade_gerenciadora)],
+         sub=ui.status(situacao_ata(a.status_ata, a.fim_validade))) }}
+    {%- endfor %}
+  </ol></div>
+  {% endcall %}
+  {%- endif %}
+
+  {%- if n_itens %}
+  {% call ui.secao("Itens contratados", n_itens, id="itens") %}
+  {{ tabela_itens(itens, colunas, "Itens contratados") }}
+  {{ ui.ver_todos(url_pagina ~ "/itens", n_itens, "itens") }}
+  {% endcall %}
+  {%- endif %}
+
+  {%- if n_notas %}
+  {% call ui.secao("Notas de autorização de despesa", n_notas, id="notas") %}
+  {{ tabela_notas(notas, colunas_notas, "Notas de autorização de despesa") }}
+  {{ ui.ver_todos(url_pagina ~ "/notas", n_notas, "notas", genero="f") }}
+  {% endcall %}
+  {%- endif %}
+{%- endif %}
+</div>
+{% endblock %}

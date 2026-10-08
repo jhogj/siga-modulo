@@ -1,0 +1,32 @@
+/* Resultados (/siga/busca). Só tokens. */
+.resultados .busca--resultados { margin-top: var(--e4); }
+.resultados .correspondencia { margin-top: var(--e5); }
+.correspondencia > .secao { margin-top: 0; }
+.resultados .abas { margin-top: var(--e5); }
+.resultados .filtros { margin-top: var(--e4); }
+.contagem {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  margin: var(--e4) 0 var(--e3);
+}
+.contagem__texto { color: var(--texto-2); font-size: var(--t15); }
+.ordem { display: flex; align-items: center; gap: 6px; }
+.ordem__rotulo { color: var(--texto-3); font-size: var(--t15); }
+
+/* Grupos da aba "Tudo": "Ver todos" à direita do h2 no desktop, abaixo da lista no mobile */
+.grupos { margin-top: var(--e4); }
+.grupos .secao { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; }
+.grupos .secao:first-child { margin-top: var(--e5); }
+.grupos .secao > .secao__topo { grid-column: 1; }
+.grupos .secao > .secao__mais { grid-column: 2; grid-row: 1; margin: 0; }
+.grupos .secao > .painel { grid-column: 1 / -1; }
+.resultados .vazio { margin-top: var(--e4); }
+
+@media (max-width: 640px) {
+  .ordem { width: 100%; }
+  .grupos .secao > .secao__mais { grid-column: 1 / -1; grid-row: 3; margin-top: var(--e3); }
+}

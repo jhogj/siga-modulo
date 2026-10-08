@@ -1,0 +1,15 @@
+/* Página fornecedor: ajustes de grid e colunas de tabela. Só tokens, até 80 linhas. Não redefine componentes.
+   Colunas curtas (contrato, data, sigla do órgão, situação) usam td.curta (base.css). */
+
+/* Processo e tipo de compra: textos longos sem espaço quebram dentro da célula */
+.pagina-fornecedor .tabela td.processo { min-width: 180px; overflow-wrap: anywhere; }
+.pagina-fornecedor .tabela td.tipo { min-width: 160px; }
+
+/* Áreas de fornecimento: texto corrido, sem chips */
+.areas { max-width: 72ch; color: var(--texto); font-size: var(--t15); line-height: var(--l15); }
+
+/* Aviso de sanção vigente: "Ver sanções" não quebra no meio */
+.pagina-fornecedor .aviso a { white-space: nowrap; }
+
+/* Principais órgãos: o nome completo não espreme no mobile; a tabela rola dentro do painel */
+.tabela--orgaos td:first-child { min-width: 220px; }

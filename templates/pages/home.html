@@ -1,0 +1,24 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Radar RJ · SIGA{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/home.css">{% endblock %}
+{% block body_class %}pagina-home{% endblock %}
+{% block faixa %}{{ ui.faixa("home") }}{% endblock %}
+{% block conteudo %}
+<div class="home">
+  <h1 class="visualmente-oculto">Radar RJ – SIGA</h1>
+  <img class="home__marca" src="/static/img/radar-rj.svg" alt="Radar RJ" width="360" height="55">
+  <p class="home__subtitulo">Monitoramento de publicações oficiais, processos administrativos eletrônicos e compras públicas do Estado do Rio de Janeiro</p>
+  {{ ui.fontes() }}
+  <form class="home__form" action="/siga/busca" method="get" data-limpar-vazios>
+    <div class="filtros">
+      {{ ui.periodo(None, None, None, anos, enviar=False) }}
+      {%- set opcoes_tipo = [] %}{% for slug, t in tipos.items() %}{% set _ = opcoes_tipo.append((slug, t.rotulo)) %}{% endfor %}
+      {{ ui.menu("tipo", "Tipo", opcoes(opcoes_tipo), None, padrao="Tudo") }}
+      {{ ui.menu("orgao", "Órgão", orgaos, None, padrao="Todos os órgãos", buscavel=True, largo=True) }}
+      {{ ui.limpar_filtros() }}
+    </div>
+    {{ ui.busca("", "hero", form=False) }}
+  </form>
+</div>
+{% endblock %}

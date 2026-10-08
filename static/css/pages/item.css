@@ -1,0 +1,15 @@
+/* Página item: filtro de origem e colunas da tabela de preços. Só tokens. */
+
+/* Segmentos de origem: fora do painel (rolam no mobile), 12 px acima da tabela */
+.item-origens { margin-bottom: var(--e3); }
+
+/* Data e origem não quebram; o fornecedor ganha largura para não espremer o nome */
+.item-precos__data,
+.item-precos__origem { white-space: nowrap; }
+.item-precos__fornecedor { min-width: 200px; }
+
+/* Sem registros: o vazio ocupa o lugar da seção, com o mesmo respiro */
+.item-vazio { margin-top: calc(var(--e5) + var(--e4)); }
+@media (max-width: 640px) {
+  .item-vazio { margin-top: var(--e6); }
+}

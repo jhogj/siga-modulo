@@ -1,0 +1,5 @@
+/* Página ata: ajustes de colunas das tabelas. Só tokens, até 80 linhas. Não redefine componentes. */
+.ata-tabela .ata-chave,
+.ata-tabela .num,
+.ata-tabela .ata-situacao { white-space: nowrap; }
+.ata-tabela .ata-forn { min-width: 200px; }

@@ -1,0 +1,10 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Página não encontrada – SIGA · Radar RJ{% endblock %}
+{% block faixa %}{{ ui.faixa("busca") }}{% endblock %}
+{% block conteudo %}
+<div class="coluna">
+  {{ ui.cabecalho("Página não encontrada", lead="Não encontramos este registro no SIGA.") }}
+  {{ ui.busca("", "compacta") }}
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{#- Linha de resultado por tipo. Cada macro recebe uma linha hidratada de search.hidratar(). -#}
+{%- import "_ui.html" as ui -%}
+
+{#- Sigla do órgão com o nome completo em <abbr title>. -#}
+{%- macro orgao(unidade) -%}
+{%- if unidade is presente %}<abbr title="{{ unidade }}">{{ unidade|sigla }}</abbr>{% endif -%}
+{%- endmacro -%}
+
+{%- macro contrato(r) -%}
+{%- set rotulo = "Contrato " ~ r.contratacao -%}
+{%- set titulo = r.objeto if r.objeto is presente else rotulo -%}
+{{ ui.linha(url_contrato(r.contratacao), titulo,
+     meta=[rotulo if titulo != rotulo else "", r.fornecedor, orgao(r.unidade), r.dt|data],
+     valor=r.valor|moeda,
+     sub=ui.status(situacao_contrato(r.status, r.dt_fim))) }}
+{%- endmacro -%}
+
+{%- macro fornecedor(r) -%}
+{%- set documento = r.cpf_cnpj -%}{#- nunca a chave (cnpj_norm), que pode ser "F" + ID Forn -#}
+{%- set n = r.n_contratos or 0 -%}
+{{ ui.linha(url_fornecedor(r.cnpj_norm), r.nome,
+     meta=[(documento|doc_rotulo ~ " " ~ documento|doc) if documento is presente else "",
+           local(r.cidade, r.uf),
+           ui.status(r.situacao, True) if alerta_fornecedor(r.situacao) else "",
+           ui.status("Sanção vigente", True) if r.sancao_vigente else ""],
+     valor=plural(n, "contrato", "contratos") if n > 0 else None,
+     sub=r.valor|moeda if n > 0 else None) }}
+{%- endmacro -%}
+
+{%- macro licitacao(r) -%}
+{%- set rotulo = (r.modalidade|modalidade ~ " " ~ (r.licitacao or ""))|trim -%}
+{%- if r.valor_homologado and r.valor_homologado > 0 -%}
+{%- set valor = r.valor_homologado|moeda -%}
+{%- elif r.valor_estimado and r.valor_estimado > 0 -%}
+{%- set valor = "Estimado " ~ r.valor_estimado|moeda -%}
+{%- else -%}{%- set valor = None -%}
+{%- endif -%}
+{{ ui.linha(url_licitacao(r.id_licitacao), r.objeto if r.objeto is presente else rotulo,
+     meta=[rotulo if r.objeto is presente else "", orgao(r.unidade), ui.status(r.status, alerta_licitacao(r.status))],
+     valor=valor,
+     sub=r.dt|data) }}
+{%- endmacro -%}
+
+{%- macro ata(r) -%}
+{%- set rotulo = "Ata " ~ r.numero_ata -%}
+{%- set n = r.n_fornecedores or 0 -%}
+{{ ui.linha(url_ata(r.id_ata), r.objeto if r.objeto is presente else rotulo,
+     meta=[rotulo if r.objeto is presente else "", orgao(r.unidade),
+           r.fornecedor if n == 1 else (plural(n, "fornecedor", "fornecedores") if n > 1 else "")],
+     sub=ui.status(situacao_ata(r.status_ata, r.fim_validade))) }}
+{%- endmacro -%}
+
+{%- macro compra(r) -%}
+{%- set n = r.n_fornecedores or 0 -%}
+{{ ui.linha(url_compra(r.id_processo), r.objeto if r.objeto is presente else "Compra " ~ r.processo|processo,
+     meta=[r.afastamento|limpo, orgao(r.unidade),
+           r.fornecedor if n == 1 else (plural(n, "fornecedor", "fornecedores") if n > 1 else ""),
+           plural(r.n_itens, "item", "itens") if r.n_itens else ""],
+     valor=r.valor|moeda,
+     sub=r.dt|data) }}
+{%- endmacro -%}
+
+{%- macro item(r) -%}
+{%- set classificacao = (r.familia ~ " › " ~ r.classe) if (r.familia is presente and r.classe is presente) else (r.familia or r.classe or "") -%}
+{%- set recente = r.dt is presente and (r.dt|string)[:10] <= hoje() -%}
+{{ ui.linha(url_item(r.id_item), r.descricao,
+     meta=[r.tipo_catalogo|tipo_item, ("Cód. " ~ r.cod_item) if r.cod_item is presente else "", classificacao],
+     sub=("Última aquisição em " ~ r.dt|data) if recente else None) }}
+{%- endmacro -%}
+
+{#- Despachante: escolhe a macro por r.tipo -#}
+{%- macro linha_resultado(r) -%}
+{%- if r.tipo == "contratos" %}{{ contrato(r) }}
+{%- elif r.tipo == "fornecedores" %}{{ fornecedor(r) }}
+{%- elif r.tipo == "licitacoes" %}{{ licitacao(r) }}
+{%- elif r.tipo == "atas" %}{{ ata(r) }}
+{%- elif r.tipo == "compras" %}{{ compra(r) }}
+{%- elif r.tipo == "itens" %}{{ item(r) }}
+{%- endif -%}
+{%- endmacro -%}

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.db
+data/*.db-*
+data/*.db.tmp*
+.ruff_cache/
+.DS_Store
+data/csv/
+data/csv.baixando/
+*.egg-info/

@@ -1,0 +1,325 @@
+{#- Componentes do SIGA no Radar RJ. Importe com {% import "_ui.html" as ui %}. -#}
+
+{%- macro _lupa() -%}
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+{%- endmacro -%}
+
+{#- Junta itens de meta (strings escapadas ou Markup) com " · ", descartando vazios. -#}
+{%- macro _meta(itens) -%}
+{%- set ns = namespace(primeiro=true) -%}
+{%- for m in itens or [] if m is presente -%}
+{%- if not ns.primeiro %}<span class="sep" aria-hidden="true"> · </span>{% endif -%}
+{{ m }}{%- set ns.primeiro = false -%}
+{%- endfor -%}
+{%- endmacro -%}
+
+{#- Faixa do topo: variante "home" | "busca" | "detalhe" -#}
+{%- macro faixa(variante, q="") -%}
+<header class="faixa faixa--{{ variante }}">
+  <div class="faixa__interna">
+    {%- if variante != "home" %}
+    <a class="faixa__marca" href="/siga"><img src="/static/img/radar-rj.svg" alt="Radar RJ" width="183" height="28"></a>
+    {%- endif %}
+    {%- if variante == "detalhe" %}
+    {{ busca(q, "compacta") }}
+    {%- endif %}
+    <nav class="nav" aria-label="Principal">
+      <a class="nav__link" href="/siga"{% if variante == "home" %} aria-current="page"{% endif %}>Home</a>
+      <a class="nav__link" href="{{ RADAR_URL }}">Sugestões</a>
+      <a class="nav__link" href="{{ RADAR_URL }}">Entrar com o gov.br</a>
+    </nav>
+    <details class="menu">
+      <summary class="nav__link">Menu</summary>
+      <nav class="painel menu__painel" aria-label="Principal">
+        <a class="nav__link" href="/siga"{% if variante == "home" %} aria-current="page"{% endif %}>Home</a>
+        <a class="nav__link" href="{{ RADAR_URL }}">Sugestões</a>
+        <a class="nav__link" href="{{ RADAR_URL }}">Entrar com o gov.br</a>
+      </nav>
+    </details>
+  </div>
+</header>
+{%- endmacro -%}
+
+{#- Pills de fonte de dados -#}
+{%- macro fontes() -%}
+<nav class="fontes" aria-label="Fontes de dados">
+  <a class="fonte" href="{{ RADAR_URL }}">Diário Oficial</a>
+  <a class="fonte" href="{{ RADAR_URL }}">SEI-RJ</a>
+  <a class="fonte fonte--ativa" href="/siga" aria-current="page">SIGA</a>
+</nav>
+{%- endmacro -%}
+
+{#- Campo de busca: variante "hero" | "resultados" | "compacta"; form=False → <div> (o form envolve também os filtros) -#}
+{%- macro busca(q="", variante="hero", form=True, autofocus=False) -%}
+{%- set tag = "form" if form else "div" -%}
+{%- set id = "q-compacta" if variante == "compacta" else "q" -%}
+<{{ tag }} class="busca busca--{{ variante }}"{% if form %} action="/siga/busca" method="get" role="search"{% endif %}>
+  <label class="visualmente-oculto" for="{{ id }}">Pesquisar no SIGA</label>
+  <input class="busca__campo" id="{{ id }}" name="q" type="search" value="{{ q or '' }}" autocomplete="off" enterkeyhint="search"
+         placeholder="{{ 'Pesquisar no SIGA' if variante == 'compacta' else 'Pesquisar por objeto, fornecedor, CNPJ ou nº do processo' }}"{% if autofocus %} autofocus{% endif %}>
+  <button class="busca__botao" type="submit" aria-label="Pesquisar">{{ _lupa() }}</button>
+</{{ tag }}>
+{%- endmacro -%}
+
+{#- Menu de filtro: <details> com opções em radio. Sem JS, abre e fecha nativamente e o form envia
+    com "Aplicar"; com JS (siga.js), escolher envia o form (data-autoenvio) ou só atualiza o botão (home).
+    opcoes: lista de fmt.opcoes() → [{v, t, s, n}] (valor, texto, sigla em destaque, contagem).
+    padrao: texto da opção vazia (None → sem opção vazia). resumo: texto do botão com filtro; se None,
+    usa a sigla ou o texto da opção marcada. buscavel: campo para filtrar a lista. -#}
+{%- macro menu(nome, rotulo, opcoes, valor, padrao=None, resumo=None, buscavel=False, largo=False, direita=False, desabilitado=False) -%}
+{%- set ativo = valor is not none and valor|string != "" -%}
+{%- set ns = namespace(resumo=resumo, titulo="") -%}
+{%- if ativo -%}{%- for o in opcoes if o.v|string == valor|string -%}
+{%- if not ns.resumo %}{% set ns.resumo = o.s or o.t %}{% endif -%}
+{%- if o.s %}{% set ns.titulo = o.s ~ " - " ~ o.t %}{% endif -%}
+{%- endfor -%}{%- endif -%}
+<details class="seletor{% if ativo %} seletor--ativo{% endif %}{% if largo %} seletor--largo{% endif %}{% if direita %} seletor--direita{% endif %}{% if desabilitado %} seletor--desabilitado{% endif %}" data-menu>
+  <summary class="seletor__botao" data-rotulo="{{ rotulo }}"{% if ns.titulo %} title="{{ ns.titulo }}"{% endif %}><span class="visualmente-oculto">{{ rotulo }}: </span><span class="seletor__texto">{{ ns.resumo if ativo and ns.resumo else rotulo }}</span></summary>
+  <div class="seletor__painel">
+    <fieldset class="seletor__grupo">
+      <legend class="visualmente-oculto">{{ rotulo }}</legend>
+      {%- if buscavel %}
+      <input class="seletor__busca" type="search" placeholder="Buscar {{ rotulo|lower }}" aria-label="Buscar {{ rotulo|lower }}" autocomplete="off" data-filtrar>
+      {%- endif %}
+      <div class="seletor__opcoes">
+        {%- if padrao is not none %}
+        <label class="opcao"><input type="radio" name="{{ nome }}" value=""{% if not ativo %} checked{% endif %}{% if desabilitado %} disabled{% endif %}><span class="opcao__marca" aria-hidden="true"></span><span class="opcao__texto">{{ padrao }}</span></label>
+        {%- endif %}
+        {%- for o in opcoes %}
+        <label class="opcao"><input type="radio" name="{{ nome }}" value="{{ o.v }}"{% if ativo and o.v|string == valor|string %} checked{% endif %}{% if desabilitado %} disabled{% endif %} data-resumo="{{ o.s or o.t }}"{% if o.s %} data-titulo="{{ o.s }} - {{ o.t }}"{% endif %}><span class="opcao__marca" aria-hidden="true"></span><span class="opcao__texto">{% if o.s %}<span class="opcao__sigla">{{ o.s }}</span> <span class="opcao__nome">{{ o.t }}</span>{% else %}{{ o.t }}{% endif %}</span>{% if o.n is not none %}<span class="opcao__n">{{ o.n|num }}</span>{% endif %}</label>
+        {%- endfor %}
+      </div>
+      {%- if buscavel %}
+      <p class="seletor__nada" hidden>Nenhum {{ rotulo|lower }} encontrado.</p>
+      {%- endif %}
+    </fieldset>
+    {%- if caller is defined %}{{ caller() }}{% endif %}
+    <noscript><button type="submit" class="seletor__aplicar">Aplicar</button></noscript>
+  </div>
+</details>
+{%- endmacro -%}
+
+{#- Período: menu com "Qualquer data", "Últimos 12 meses", anos e datas livres (dd/mm/aaaa).
+    sel: "12m", um ano, "personalizado" ou None. enviar=False (home): "Aplicar" só fecha o menu. -#}
+{%- macro periodo(sel, de, ate, anos, resumo=None, enviar=True, desabilitado=False) -%}
+{%- set opcoes = [{"v": "12m", "t": "Últimos 12 meses", "s": none, "n": none}] -%}
+{%- for a in anos %}{% set _ = opcoes.append({"v": a, "t": a, "s": none, "n": none}) %}{% endfor -%}
+{%- call menu("periodo", "Período", opcoes, sel, padrao="Qualquer data", resumo=resumo, desabilitado=desabilitado) %}
+    <div class="seletor__personalizado">
+      <label class="opcao"><input type="radio" name="periodo" value="personalizado"{% if sel == "personalizado" %} checked{% endif %}{% if desabilitado %} disabled{% endif %} data-personalizado><span class="opcao__marca" aria-hidden="true"></span><span class="opcao__texto">Outro período</span></label>
+      <div class="seletor__datas">
+        <label class="campo-data"><span class="campo-data__rotulo">De</span><input type="text" name="de" value="{{ de|data if sel == 'personalizado' else '' }}" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"{% if desabilitado %} disabled{% endif %} data-data></label>
+        <label class="campo-data"><span class="campo-data__rotulo">Até</span><input type="text" name="ate" value="{{ ate|data if sel == 'personalizado' else '' }}" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"{% if desabilitado %} disabled{% endif %} data-data></label>
+        <button class="seletor__aplicar" type="{{ 'submit' if enviar else 'button' }}" data-aplicar>Aplicar</button>
+      </div>
+    </div>
+{%- endcall %}
+{%- endmacro -%}
+
+{#- Limpar filtros: sem href → <button type="reset"> (home); com href → link (resultados) -#}
+{%- macro limpar_filtros(href=None) -%}
+{%- set icone -%}
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h16l-6.2 7.4V17l-3.6 2v-7.6L3 4z"/><circle cx="18" cy="18" r="3.6"/><path d="M16.6 16.6l2.8 2.8M19.4 16.6l-2.8 2.8"/></svg>
+{%- endset -%}
+{%- if href -%}
+<a class="filtros__limpar" href="{{ href }}" aria-label="Limpar filtros">{{ icone }}</a>
+{%- else -%}
+<button class="filtros__limpar" type="reset" aria-label="Limpar filtros">{{ icone }}</button>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Abas. itens: [{slug, rotulo, n, href}]. n None ou slug "tudo" → sem contagem. variante="segmentos" → .abas--segmentos -#}
+{%- macro abas(itens, ativo, variante=None, rotulo="Tipos de registro") -%}
+<nav class="abas{% if variante %} abas--{{ variante }}{% endif %}" aria-label="{{ rotulo }}">
+  {%- for a in itens %}
+  {%- set conta = a.n is not none and a.slug != "tudo" %}
+  {%- if a.slug == ativo %}
+  <a class="aba" aria-current="page" href="{{ a.href }}">{{ a.rotulo }}{% if conta %}<span class="aba__n">{{ a.n|num }}</span>{% endif %}</a>
+  {%- elif conta and a.n == 0 %}
+  <span class="aba aba--vazia" aria-disabled="true">{{ a.rotulo }}<span class="aba__n">0</span></span>
+  {%- else %}
+  <a class="aba" href="{{ a.href }}">{{ a.rotulo }}{% if conta %}<span class="aba__n">{{ a.n|num }}</span>{% endif %}</a>
+  {%- endif %}
+  {%- endfor %}
+</nav>
+{%- endmacro -%}
+
+{#- Linha de resultado / entidade relacionada. Use dentro de <div class="painel"><ol class="lista">…</ol></div>. -#}
+{%- macro linha(href, titulo, meta=[], valor=None, sub=None, detalhes=None) -%}
+<li class="linha">
+  <div class="linha__principal">
+    <p class="linha__titulo">{% if href %}<a href="{{ href }}">{{ titulo }}</a>{% else %}{{ titulo }}{% endif %}</p>
+    {%- set m = _meta(meta) %}
+    {%- if m is presente %}
+    <p class="linha__meta">{{ m }}</p>
+    {%- endif %}
+  </div>
+  {%- if valor is presente or sub is presente %}
+  <div class="linha__lado">
+    {%- if valor is presente %}<p class="linha__valor">{{ valor }}</p>{% endif %}
+    {%- if sub is presente %}<p class="linha__sub">{{ sub }}</p>{% endif %}
+  </div>
+  {%- endif %}
+  {%- if detalhes is presente %}
+  <div class="linha__detalhes">{{ detalhes }}</div>
+  {%- endif %}
+</li>
+{%- endmacro -%}
+
+{#- Trilha. itens: [(rotulo, href_ou_none)]; o último é a página atual. -#}
+{%- macro trilha(itens) -%}
+<nav class="trilha" aria-label="Você está em"><ol>
+  {%- for rotulo, href in itens %}
+  <li>{% if not loop.first %}<span class="trilha__sep" aria-hidden="true">›</span>{% endif -%}
+    {%- if loop.last or not href -%}
+    <span class="trilha__rotulo" title="{{ rotulo }}"{% if loop.last %} aria-current="page"{% endif %}>{{ rotulo }}</span>
+    {%- else -%}
+    <a class="trilha__rotulo" href="{{ href }}" title="{{ rotulo }}">{{ rotulo }}</a>
+    {%- endif %}</li>
+  {%- endfor %}
+</ol></nav>
+{%- endmacro -%}
+
+{#- Cabeçalho do detalhe -#}
+{%- macro cabecalho(titulo, meta=[], lead=None) -%}
+<header class="cabecalho">
+  <h1 class="cabecalho__titulo">{{ titulo }}</h1>
+  {%- set m = _meta(meta) %}
+  {%- if m is presente %}
+  <p class="cabecalho__meta">{{ m }}</p>
+  {%- endif %}
+  {%- if lead is presente %}
+  <p class="cabecalho__lead">{{ lead }}</p>
+  {%- endif %}
+</header>
+{%- endmacro -%}
+
+{#- Status: texto puro; alerta só muda a cor. Aceita também o dict de situacao_*(). -#}
+{%- macro status(texto, alerta=False) -%}
+{%- if texto is mapping %}{% set alerta = texto.alerta %}{% set texto = texto.texto %}{% endif -%}
+{%- if texto is presente -%}
+<span class="status{% if alerta %} status--alerta{% endif %}">{{ texto }}</span>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Números. itens: [{rotulo, valor, nota}]; valor "Não informado" (ou vazio=True) → estilo vazio. -#}
+{%- macro numeros(itens) -%}
+{%- set validos = [] -%}
+{%- for i in itens or [] if i.valor is presente %}{% set _ = validos.append(i) %}{% endfor -%}
+{%- if validos -%}
+<dl class="numeros">
+  {%- for i in validos %}
+  <div class="numero">
+    <dt class="numero__rotulo">{{ i.rotulo }}</dt>
+    <dd class="numero__valor{% if i.vazio or i.valor == 'Não informado' %} numero__valor--vazio{% endif %}">{{ i.valor }}</dd>
+    {%- if i.nota is presente %}
+    <dd class="numero__nota">{{ i.nota }}</dd>
+    {%- endif %}
+  </div>
+  {%- endfor %}
+</dl>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Ficha. linhas: [(rotulo, valor)]; valor str ou Markup ({% set v %}…{% endset %}); vazios não aparecem. -#}
+{%- macro ficha(linhas) -%}
+{%- set validas = [] -%}
+{%- for rotulo, valor in linhas or [] if valor is presente %}{% set _ = validas.append((rotulo, valor)) %}{% endfor -%}
+{%- if validas -%}
+<div class="painel"><dl class="ficha">
+  {%- for rotulo, valor in validas %}
+  <div class="ficha__linha"><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+  {%- endfor %}
+</dl></div>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Seção com h2 e contagem. Use com {% call ui.secao("Contratos", 12) %}…{% endcall %}. nota: texto curto ao lado do título. -#}
+{%- macro secao(titulo, n=None, id=None, nota=None) -%}
+{%- set sid = id or titulo|slug -%}
+<section class="secao" id="{{ sid }}" aria-labelledby="{{ sid }}-titulo">
+  <div class="secao__topo">
+    <h2 class="secao__titulo" id="{{ sid }}-titulo">{{ titulo }}{% if n is not none %}<span class="secao__n">{{ n|num }}</span>{% endif %}</h2>
+    {%- if nota is presente %}
+    <p class="sec">{{ nota }}</p>
+    {%- endif %}
+  </div>
+  {{ caller() }}
+</section>
+{%- endmacro -%}
+
+{#- "Ver todos os N …". Só aparece quando total > limite (padrão MOSTRAR_TUDO_ATE). genero "f" → "todas as". -#}
+{%- macro ver_todos(href, total, plural_substantivo, genero="m", limite=None) -%}
+{%- if href and total and total > (limite if limite is not none else MOSTRAR_TUDO_ATE) -%}
+<p class="secao__mais"><a href="{{ href }}">Ver {{ "todas as" if genero == "f" else "todos os" }} {{ total|num }} {{ plural_substantivo }}</a></p>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Paginação. pag: dict de _comum.paginar. -#}
+{%- macro paginacao(pag, request) -%}
+{%- if pag and pag.paginas > 1 -%}
+{%- set atual, ultima = pag.pagina, pag.paginas -%}
+<nav class="paginacao" aria-label="Paginação">
+  <p class="paginacao__faixa">{{ pag.inicio|num }}–{{ pag.fim|num }} de {{ pag.total|num }}</p>
+  <ol class="paginacao__paginas">
+    {%- if atual > 1 %}
+    <li><a rel="prev" href="{{ url_with(request, pagina=atual - 1) }}">‹ Anterior</a></li>
+    {%- endif %}
+    {%- set ns = namespace(ant=0) %}
+    {%- for n in range(1, ultima + 1) if n == 1 or n == ultima or (n >= atual - 2 and n <= atual + 2) %}
+    {%- if n - ns.ant > 1 %}
+    <li><span class="paginacao__lacuna" aria-hidden="true">…</span></li>
+    {%- endif %}
+    {%- if n == atual %}
+    <li><span aria-current="page">{{ n|num }}</span></li>
+    {%- else %}
+    <li><a href="{{ url_with(request, pagina=n) }}">{{ n|num }}</a></li>
+    {%- endif %}
+    {%- set ns.ant = n %}
+    {%- endfor %}
+    {%- if atual < ultima %}
+    <li><a rel="next" href="{{ url_with(request, pagina=atual + 1) }}">Próxima ›</a></li>
+    {%- endif %}
+  </ol>
+  <p class="paginacao__compacta">
+    {%- if atual > 1 %}<a href="{{ url_with(request, pagina=atual - 1) }}">‹ Anterior</a><span class="sep" aria-hidden="true"> · </span>{% endif -%}
+    Página {{ atual|num }} de {{ ultima|num }}
+    {%- if atual < ultima %}<span class="sep" aria-hidden="true"> · </span><a href="{{ url_with(request, pagina=atual + 1) }}">Próxima ›</a>{% endif -%}
+  </p>
+</nav>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Estado vazio. acoes: [(rotulo, href)]. -#}
+{%- macro vazio(mensagem, acoes=[]) -%}
+<div class="painel vazio">
+  <p class="vazio__mensagem">{{ mensagem }}</p>
+  {%- if acoes %}
+  <p class="vazio__acoes">
+    {%- for rotulo, href in acoes -%}
+    {%- if not loop.first %}<span class="sep" aria-hidden="true"> · </span>{% endif -%}
+    <a href="{{ href }}">{{ rotulo }}</a>
+    {%- endfor -%}
+  </p>
+  {%- endif %}
+</div>
+{%- endmacro -%}
+
+{#- Aviso de alerta (uso único: sanção vigente). A primeira frase vai em <strong class="status--alerta">. -#}
+{%- macro aviso() -%}
+<div class="aviso" role="note">{{ caller() }}</div>
+{%- endmacro -%}
+
+{#- Link externo (uso único: PNCP) -#}
+{%- macro link_externo(href, rotulo) -%}
+{%- if href is presente -%}
+<a href="{{ href }}" target="_blank" rel="noopener">{{ rotulo }} ↗<span class="visualmente-oculto"> (abre em nova aba)</span></a>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- Rodapé. O brasão tem 80 px na home (body.pagina-home) e 56 px nas demais. -#}
+{%- macro rodape() -%}
+<footer class="rodape">
+  <img class="rodape__brasao" src="/static/img/governo-rj.svg" alt="Governo do Estado do Rio de Janeiro" width="213" height="56">
+</footer>
+{%- endmacro -%}

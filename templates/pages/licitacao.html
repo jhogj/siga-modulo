@@ -1,0 +1,155 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% import "_linhas.html" as L %}
+{% set lic = licitacao %}
+{% set rotulo = (lic.modalidade|modalidade ~ " " ~ (lic.licitacao or ""))|trim %}
+{% set href_lic = url_licitacao(lic.id_licitacao) %}
+
+{#- Fornecedor com link quando há chave; nome longo em 2 linhas só quando é link. A chave nunca é exibida. -#}
+{%- macro fornecedor(nome, cnpj, clamp=False) -%}
+{%- set href = url_fornecedor(cnpj) -%}
+{%- set nome = nome if nome is presente else "" -%}
+{%- if href %}<a{% if clamp %} class="clamp2"{% endif %} href="{{ href }}">{{ nome or "Fornecedor" }}</a>{% else %}{{ nome }}{% endif -%}
+{%- endmacro -%}
+
+{%- macro tabela_participantes(linhas, col) -%}
+<div class="painel painel--tabela"><table class="tabela tabela--participantes">
+  <caption class="visualmente-oculto">Fornecedores participantes</caption>
+  <thead><tr>
+    <th scope="col">Fornecedor</th><th scope="col" class="num">Itens disputados</th><th scope="col" class="num">Itens vencidos</th>
+    {%- if col.valor_vencido %}<th scope="col" class="num">Valor vencido</th>{% endif %}
+  </tr></thead>
+  <tbody>
+    {%- for p in linhas %}
+    <tr>
+      <td>{{ fornecedor(p.fornecedor, p.cnpj_norm) }}</td>
+      <td class="num">{{ p.disputados|num }}</td>
+      <td class="num">{{ p.vencidos|num }}</td>
+      {%- if col.valor_vencido %}<td class="num">{{ p.valor_vencido|moeda }}</td>{% endif %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- macro lista_atas(linhas) -%}
+<div class="painel"><ol class="lista">
+  {%- for a in linhas %}
+  {%- set validade = (a.inicio_validade|data ~ " a " ~ a.fim_validade|data) if (a.inicio_validade|data and a.fim_validade|data) else "" %}
+  {{ ui.linha(url_ata(a.id_ata), "Ata de registro de preços " ~ a.numero_ata,
+       meta=[L.orgao(a.unidade_gerenciadora), ("Validade " ~ validade) if validade else ""],
+       sub=ui.status(situacao_ata(a.status_ata, a.fim_validade))) }}
+  {%- endfor %}
+</ol></div>
+{%- endmacro -%}
+
+{%- macro tabela_contratos(linhas, col) -%}
+<div class="painel painel--tabela"><table class="tabela tabela--contratos">
+  <caption class="visualmente-oculto">Contratos gerados</caption>
+  <thead><tr>
+    <th scope="col">Contrato</th>
+    {%- if col.dt_contratacao %}<th scope="col">Data</th>{% endif %}
+    {%- if col.fornecedor %}<th scope="col">Fornecedor</th>{% endif %}
+    {%- if col.valor %}<th scope="col" class="num">Valor</th>{% endif %}
+    <th scope="col">Situação</th>
+  </tr></thead>
+  <tbody>
+    {%- for c in linhas %}
+    <tr>
+      <td class="curta">{% set h = url_contrato(c.contratacao) %}{% if h %}<a href="{{ h }}">{{ c.contratacao }}</a>{% else %}{{ c.contratacao }}{% endif %}</td>
+      {%- if col.dt_contratacao %}<td class="curta">{{ c.dt_contratacao|data }}</td>{% endif %}
+      {%- if col.fornecedor %}<td>{{ fornecedor(c.fornecedor, c.cnpj_norm) }}</td>{% endif %}
+      {%- if col.valor %}<td class="num">{{ c.valor|moeda }}</td>{% endif %}
+      <td class="curta">{{ ui.status(situacao_contrato(c.status_contratacao, c.dt_fim_vigencia)) }}</td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- macro tabela_itens(linhas, col) -%}
+<div class="painel painel--tabela"><table class="tabela tabela--itens">
+  <caption class="visualmente-oculto">Itens</caption>
+  <thead><tr>
+    <th scope="col" class="num">Item</th><th scope="col">Descrição</th>
+    {%- if col.quantidade %}<th scope="col" class="num">Quantidade</th>{% endif %}
+    {%- if col.valor_unitario %}<th scope="col" class="num">Valor unitário</th>{% endif %}
+    {%- if col.valor_total %}<th scope="col" class="num">Valor total</th>{% endif %}
+    {%- if col.vencedor %}<th scope="col">Vencedor</th>{% endif %}
+    {%- if col.situacao_item %}<th scope="col">Situação</th>{% endif %}
+  </tr></thead>
+  <tbody>
+    {%- for i in linhas %}
+    <tr>
+      <td class="num">{{ i.itens_lotes|item_numero }}</td>
+      <td class="longo">{% set h = url_item(i.id_item) %}{% if h %}<a class="clamp2" href="{{ h }}">{{ i.descricao }}</a>{% else %}{{ i.descricao }}{% endif %}</td>
+      {%- if col.quantidade %}<td class="num">{{ i.quantidade|qtd }}</td>{% endif %}
+      {%- if col.valor_unitario %}<td class="num">{{ i.valor_unitario|moeda }}</td>{% endif %}
+      {%- if col.valor_total %}<td class="num">{{ i.valor_total|moeda }}</td>{% endif %}
+      {%- if col.vencedor %}<td class="vencedor">{{ fornecedor(i.vencedor, i.vencedor_cnpj, clamp=True) }}{% if i.vencedor_mais %} e mais {{ i.vencedor_mais|num }}{% endif %}</td>{% endif %}
+      {%- if col.situacao_item %}<td>{{ ui.status(i.situacao_item, alerta_item(i.situacao_item)) }}</td>{% endif %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- macro conteudo_secao(nome, linhas, col) -%}
+{%- if nome == "participantes" %}{{ tabela_participantes(linhas, col) }}
+{%- elif nome == "atas" %}{{ lista_atas(linhas) }}
+{%- elif nome == "contratos" %}{{ tabela_contratos(linhas, col) }}
+{%- elif nome == "itens" %}{{ tabela_itens(linhas, col) }}
+{%- endif -%}
+{%- endmacro -%}
+
+{% set VER_TODOS = {"participantes": ("fornecedores", "m"), "atas": ("atas", "f"), "contratos": ("contratos", "m"), "itens": ("itens", "m")} %}
+
+{% block title %}{% if secao is not none %}{{ titulo_secao }} – {% endif %}{{ rotulo }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/licitacao.css">{% endblock %}
+{% block body_class %}pagina-licitacao{% endblock %}
+{% block conteudo %}
+<div class="coluna">
+{%- if secao is not none %}
+  {{ ui.trilha([("SIGA", "/siga"), (rotulo, href_lic), (titulo_secao, None)]) }}
+  {%- set h1 %}{{ titulo_secao }}<span class="secao__n">{{ pag.total|num }}</span>{% endset %}
+  {{ ui.cabecalho(h1, [rotulo, lic.unidade]) }}
+  {{ conteudo_secao(nome_secao, linhas, colunas) }}
+  {{ ui.paginacao(pag, request) }}
+{%- else %}
+  {%- set trilha = [("SIGA", "/siga")] + ([('Resultados para "' ~ busca.q ~ '"', busca.href)] if busca else []) + [(rotulo, None)] %}
+  {{ ui.trilha(trilha) }}
+  {{ ui.cabecalho(rotulo, [ui.status(status), lic.unidade, lic.regime], lic.objeto) }}
+
+  {{ ui.numeros([
+       {"rotulo": "Valor estimado", "valor": estimado|moeda},
+       {"rotulo": "Valor homologado", "valor": homologado|moeda, "nota": variacao},
+       {"rotulo": "Itens", "valor": totais.itens|num if totais.itens else None},
+       {"rotulo": "Fornecedores participantes", "valor": totais.participantes|num if totais.participantes else None},
+     ]) }}
+
+  {#- Processos múltiplos vêm unidos por "#": um por linha. -#}
+  {%- set processos %}{% for p in (lic.processo or "").split("#") if p|processo %}{% if not loop.first %}<br>{% endif %}{{ p|processo }}{% endfor %}{% endset %}
+  {{ ui.ficha([
+       ("Órgão", lic.unidade),
+       ("Modalidade", lic.modalidade),
+       ("Critério de julgamento", lic.criterio_julgamento),
+       ("Registro de preços", lic.srp),
+       ("Licitação internacional", "Sim" if lic.internacional == "S" else None),
+       ("Processo", processos),
+       ("Publicação", lic.dt_publicacao|data),
+       ("Prazo para propostas", lic.dt_limite_proposta|datahora),
+       ("Abertura", lic.dt_abertura|datahora),
+       ("Adjudicação", lic.dt_adjudicacao|data),
+       ("Homologação", lic.dt_homologacao|data),
+     ]) }}
+
+  {%- for nome in ("participantes", "atas", "contratos", "itens") if nome in secoes %}
+  {%- set s = secoes[nome] %}
+  {% call ui.secao(s.titulo, s.total, id=nome) %}
+    {{ conteudo_secao(nome, s.linhas, s.colunas) }}
+    {{ ui.ver_todos(href_lic ~ "/" ~ nome, s.total, VER_TODOS[nome][0], VER_TODOS[nome][1]) }}
+  {% endcall %}
+  {%- endfor %}
+{%- endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+
+{#- Fornecedor com link quando há CNPJ; sem CNPJ, só o nome. -#}
+{%- macro fornecedor_link(nome, cnpj_norm) -%}
+{%- set href = url_fornecedor(cnpj_norm) -%}
+{%- if nome is presente -%}{% if href %}<a href="{{ href }}">{{ nome }}</a>{% else %}{{ nome }}{% endif %}{%- endif -%}
+{%- endmacro -%}
+
+{#- Itens comprados. A coluna Fornecedor só existe quando o processo tem mais de um fornecedor;
+    as demais somem quando nenhuma linha visível tem dado. -#}
+{%- macro tabela_itens(linhas, varios_fornecedores) -%}
+{%- set tem_qtd = linhas|selectattr("qtd", "presente")|list|length > 0 -%}
+{%- set tem_unit = linhas|selectattr("vl_unitario", "presente")|list|length > 0 -%}
+{%- set tem_total = linhas|selectattr("total", "presente")|list|length > 0 -%}
+<div class="painel painel--tabela"><table class="tabela tabela--compra">
+  <caption class="visualmente-oculto">Itens comprados</caption>
+  <thead><tr>
+    <th scope="col">Item</th>
+    {%- if varios_fornecedores %}<th scope="col">Fornecedor</th>{% endif %}
+    {%- if tem_qtd %}<th scope="col" class="num">Quantidade</th>{% endif %}
+    {%- if tem_unit %}<th scope="col" class="num">Valor unitário</th>{% endif %}
+    {%- if tem_total %}<th scope="col" class="num">Valor total</th>{% endif %}
+  </tr></thead>
+  <tbody>
+    {%- for r in linhas %}
+    {%- set href = url_item(r.id_item) %}
+    <tr>
+      <td class="longo">{% if href %}<a class="clamp2" href="{{ href }}">{{ r.item }}</a>{% else %}{{ r.item }}{% endif %}</td>
+      {%- if varios_fornecedores %}<td class="compra__fornecedor">{{ fornecedor_link(r.fornecedor_vencedor, r.cnpj_norm) }}</td>{% endif %}
+      {%- if tem_qtd %}<td class="num">{% if r.qtd is presente %}{{ r.qtd|qtd_unidade(r.unidade_medida) }}{% endif %}</td>{% endif %}
+      {%- if tem_unit %}<td class="num">{{ r.vl_unitario|moeda }}</td>{% endif %}
+      {%- if tem_total %}<td class="num">{{ r.total|moeda }}</td>{% endif %}
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{#- Contratos gerados pelo processo. -#}
+{%- macro tabela_contratos(linhas) -%}
+{%- set tem_data = linhas|map(attribute="dt_contratacao")|map("data")|select("presente")|list|length > 0 -%}
+{%- set tem_forn = linhas|selectattr("fornecedor", "presente")|list|length > 0 -%}
+{%- set tem_valor = linhas|selectattr("valor_total_contrato", "presente")|list|length > 0 -%}
+<div class="painel painel--tabela"><table class="tabela tabela--compra">
+  <caption class="visualmente-oculto">Contratos gerados</caption>
+  <thead><tr>
+    <th scope="col">Contrato</th>
+    {%- if tem_data %}<th scope="col">Data</th>{% endif %}
+    {%- if tem_forn %}<th scope="col">Fornecedor</th>{% endif %}
+    {%- if tem_valor %}<th scope="col" class="num">Valor</th>{% endif %}
+    <th scope="col">Situação</th>
+  </tr></thead>
+  <tbody>
+    {%- for c in linhas %}
+    <tr>
+      <td class="compra__contrato">{% set href = url_contrato(c.contratacao) %}{% if href %}<a href="{{ href }}">{{ c.contratacao }}</a>{% endif %}</td>
+      {%- if tem_data %}<td class="compra__data">{{ c.dt_contratacao|data }}</td>{% endif %}
+      {%- if tem_forn %}<td class="compra__fornecedor">{{ fornecedor_link(c.fornecedor, c.cnpj_norm) }}</td>{% endif %}
+      {%- if tem_valor %}<td class="num">{{ c.valor_total_contrato|moeda }}</td>{% endif %}
+      <td class="compra__situacao">{{ ui.status(situacao_contrato(c.status_contratacao, c.dt_fim_vigencia)) }}</td>
+    </tr>
+    {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- set processo = compra.processo|processo %}
+{%- set rotulo = ("Compra " ~ processo) if processo else "Compra" %}
+{%- set url_pagina = url_compra(compra.id_processo) %}
+{%- set varios_fornecedores = fornecedores|length > 1 %}
+
+{% block title %}{% if secao is not none %}{{ titulos[secao] }} – {% endif %}{{ rotulo }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/compra.css">{% endblock %}
+{% block body_class %}pagina-compra{% endblock %}
+
+{% block conteudo %}
+<div class="coluna">
+{%- if secao is not none %}
+  {#- Modo seção: lista completa com paginação -#}
+  {{ ui.trilha([("SIGA", "/siga"), (rotulo, url_pagina), (titulos[secao], None)]) }}
+  {%- set h1 %}{{ titulos[secao] }}<span class="secao__n">{{ pag.total|num }}</span>{% endset %}
+  {{ ui.cabecalho(h1, [rotulo, compra.unidade]) }}
+  {%- if secao == "itens" %}
+  {{ tabela_itens(linhas, varios_fornecedores) }}
+  {%- else %}
+  {{ tabela_contratos(linhas) }}
+  {%- endif %}
+  {{ ui.paginacao(pag, request) }}
+{%- else %}
+  {%- set trilha = [("SIGA", "/siga")] + ([('Resultados para "' ~ busca.q ~ '"', busca.href)] if busca else []) + [(rotulo, None)] %}
+  {{ ui.trilha(trilha) }}
+  {%- set aprovada = compra.dt_aprovacao|data %}
+  {{ ui.cabecalho(rotulo, [compra.afastamento|limpo, ("Aprovada em " ~ aprovada) if aprovada else "", compra.unidade], compra.objeto) }}
+
+  {{ ui.numeros([
+       {"rotulo": "Valor do processo", "valor": compra.valor_processo|moeda},
+       {"rotulo": "Itens", "valor": n_itens|num if n_itens else ""},
+       {"rotulo": "Fornecedores", "valor": fornecedores|length|num if varios_fornecedores else ""},
+     ]) }}
+
+  {%- set v_fornecedor %}
+  {%- if fornecedores|length == 1 %}{% set f = fornecedores[0] %}
+  {{- fornecedor_link(f.nome, f.cnpj_norm) }}
+  {%- if f.cpf_cnpj is presente %}{% if f.nome is presente %}<br>{% endif %}<span class="sec">{{ f.cpf_cnpj|doc_rotulo }} {{ f.cpf_cnpj|doc }}</span>{% endif %}
+  {%- endif %}
+  {%- endset %}
+  {%- set v_disputa = "" %}
+  {%- if disputa %}
+  {%- set ini, fim = disputa.ini|datahora, disputa.fim|datahora %}
+  {%- set v_disputa = (ini ~ " a " ~ fim) if (ini and fim) else (ini or fim) %}
+  {%- endif %}
+  {{ ui.ficha([
+       ("Órgão", compra.unidade),
+       ("Tipo de compra", compra.afastamento|limpo),
+       ("Fundamento legal", compra.enquadramento_legal|limpo),
+       ("Regime jurídico", compra.regime),
+       ("Fornecedor", v_fornecedor),
+       ("Processo", processo),
+       ("Disputa eletrônica", v_disputa),
+     ]) }}
+
+  {%- if varios_fornecedores %}
+  {% call ui.secao("Fornecedores", fornecedores|length, id="fornecedores") %}
+  {%- set tem_valor = fornecedores|selectattr("valor", "presente")|list|length > 0 %}
+  <div class="painel painel--tabela"><table class="tabela tabela--compra">
+    <caption class="visualmente-oculto">Fornecedores</caption>
+    <thead><tr><th scope="col">Fornecedor</th><th scope="col" class="num">Itens</th>
+      {%- if tem_valor %}<th scope="col" class="num">Valor</th>{% endif %}</tr></thead>
+    <tbody>
+      {%- for f in fornecedores %}
+      <tr>
+        <td>{{ fornecedor_link(f.nome, f.cnpj_norm) }}</td>
+        <td class="num">{{ f.itens|num }}</td>
+        {%- if tem_valor %}<td class="num">{{ f.valor|moeda }}</td>{% endif %}
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table></div>
+  {% endcall %}
+  {%- endif %}
+
+  {%- if n_itens %}
+  {% call ui.secao(titulos.itens, n_itens, id="itens") %}
+  {{ tabela_itens(itens, varios_fornecedores) }}
+  {{ ui.ver_todos(url_pagina ~ "/itens", n_itens, "itens") }}
+  {% endcall %}
+  {%- endif %}
+
+  {%- if n_contratos %}
+  {% call ui.secao(titulos.contratos, n_contratos, id="contratos") %}
+  {{ tabela_contratos(contratos) }}
+  {{ ui.ver_todos(url_pagina ~ "/contratos", n_contratos, "contratos") }}
+  {% endcall %}
+  {%- endif %}
+{%- endif %}
+</div>
+{% endblock %}

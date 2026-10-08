@@ -1,0 +1,165 @@
+{#- Detalhe da ata de registro de preços. Modos: página (secao is none) e lista completa de seção. -#}
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% import "_linhas.html" as tipos %}
+{% set rotulo = "Ata de registro de preços " ~ ata.numero_ata %}
+{% set url = url_ata(ata.id_ata) %}
+{% set nomes = {"itens": "Itens registrados", "contratos": "Contratos gerados", "orgaos": "Órgãos participantes"} %}
+{% set n = numeros %}
+{% set varios = n.fornecedores > 1 %}
+
+{#- Fornecedor com link quando o CNPJ foi resolvido. -#}
+{% macro fornecedor_link(nome, cnpj) -%}
+{%- if cnpj %}<a href="{{ url_fornecedor(cnpj) }}">{{ nome }}</a>{% else %}{{ nome }}{% endif -%}
+{%- endmacro %}
+
+{% macro tabela_fornecedores(rows) -%}
+{%- set com_valor = rows|selectattr("valor")|list %}
+<div class="painel painel--tabela"><table class="tabela ata-tabela">
+  <caption class="visualmente-oculto">Fornecedores</caption>
+  <thead><tr><th scope="col">Fornecedor</th><th scope="col" class="num">Itens</th>
+    {%- if com_valor %}<th scope="col" class="num">Valor registrado</th>{% endif %}</tr></thead>
+  <tbody>
+  {%- for f in rows %}
+  <tr><td>{{ fornecedor_link(f.fornecedor, f.cnpj_norm) }}</td><td class="num">{{ f.itens|num }}</td>
+    {%- if com_valor %}<td class="num">{{ f.valor|moeda }}</td>{% endif %}</tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro %}
+
+{% macro tabela_contratos(rows) -%}
+{%- set c_data = rows|selectattr("dt_contratacao", "presente")|list %}
+{%- set c_orgao = rows|selectattr("unidade", "presente")|list %}
+{%- set c_forn = rows|selectattr("fornecedor", "presente")|list %}
+{%- set c_valor = rows|selectattr("valor_total_contrato")|list %}
+<div class="painel painel--tabela"><table class="tabela ata-tabela">
+  <caption class="visualmente-oculto">Contratos gerados</caption>
+  <thead><tr><th scope="col">Contrato</th>
+    {%- if c_data %}<th scope="col">Data</th>{% endif %}
+    {%- if c_orgao %}<th scope="col">Órgão</th>{% endif %}
+    {%- if c_forn %}<th scope="col">Fornecedor</th>{% endif %}
+    {%- if c_valor %}<th scope="col" class="num">Valor</th>{% endif %}
+    <th scope="col">Situação</th></tr></thead>
+  <tbody>
+  {%- for c in rows %}
+  <tr><td class="ata-chave"><a href="{{ url_contrato(c.contratacao) }}">{{ c.contratacao }}</a></td>
+    {%- if c_data %}<td class="ata-chave">{{ c.dt_contratacao|data }}</td>{% endif %}
+    {%- if c_orgao %}<td>{{ tipos.orgao(c.unidade) }}</td>{% endif %}
+    {%- if c_forn %}<td class="ata-forn">{{ fornecedor_link(c.fornecedor, c.cnpj_norm) }}</td>{% endif %}
+    {%- if c_valor %}<td class="num">{{ c.valor_total_contrato|moeda }}</td>{% endif %}
+    <td class="ata-situacao">{{ ui.status(situacao_contrato(c.status_contratacao, c.dt_fim_vigencia)) }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro %}
+
+{% macro tabela_itens(rows) -%}
+{%- set c_qtd = rows|selectattr("qtd", "presente")|list %}
+{%- set c_vl = rows|selectattr("vl_unitario")|list %}
+<div class="painel painel--tabela"><table class="tabela ata-tabela">
+  <caption class="visualmente-oculto">Itens registrados</caption>
+  <thead><tr><th scope="col">Item</th>
+    {%- if varios %}<th scope="col">Fornecedor</th>{% endif %}
+    {%- if c_qtd %}<th scope="col" class="num">Quantidade</th>{% endif %}
+    {%- if c_vl %}<th scope="col" class="num">Valor unitário</th>{% endif %}</tr></thead>
+  <tbody>
+  {%- for i in rows %}
+  <tr><td class="longo"><a class="clamp2" href="{{ url_item(i.id_item) }}">{{ i.item|limpo }}</a></td>
+    {%- if varios %}<td class="ata-forn">{{ fornecedor_link(i.fornecedor, i.cnpj_norm) }}</td>{% endif %}
+    {%- if c_qtd %}<td class="num">{{ i.qtd|qtd }}</td>{% endif %}
+    {%- if c_vl %}<td class="num">{{ i.vl_unitario|moeda }}</td>{% endif %}</tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro %}
+
+{% macro tabela_orgaos(rows) -%}
+<div class="painel painel--tabela"><table class="tabela ata-tabela">
+  <caption class="visualmente-oculto">Órgãos participantes</caption>
+  <thead><tr><th scope="col">Órgão</th><th scope="col" class="num">Itens solicitados</th>
+    <th scope="col" class="num">Itens com consumo registrado</th></tr></thead>
+  <tbody>
+  {%- for o in rows %}
+  <tr><td>{{ o.unidade_participante or "" }}</td><td class="num">{{ o.itens|num }}</td><td class="num">{{ o.consumidos|num }}</td></tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro %}
+
+{% macro tabela(nome, rows) -%}
+{%- if nome == "itens" %}{{ tabela_itens(rows) }}
+{%- elif nome == "contratos" %}{{ tabela_contratos(rows) }}
+{%- else %}{{ tabela_orgaos(rows) }}{% endif -%}
+{%- endmacro %}
+
+{% block title %}{% if secao is not none %}{{ nomes[secao] }} – {% endif %}{{ rotulo }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/ata.css">{% endblock %}
+{% block body_class %}pagina-ata{% endblock %}
+
+{% block conteudo %}
+<div class="coluna">
+{%- if secao is not none %}
+  {{ ui.trilha([("SIGA", "/siga"), (rotulo, url), (nomes[secao], None)]) }}
+  {%- set h1 %}{{ nomes[secao] }}<span class="secao__n">{{ pag.total|num }}</span>{% endset %}
+  {{ ui.cabecalho(h1, [rotulo, ata.unidade_gerenciadora]) }}
+  {{ tabela(secao, linhas) }}
+  {{ ui.paginacao(pag, request) }}
+{%- else %}
+  {%- set trilha = [("SIGA", "/siga")] + ([('Resultados para "' ~ busca.q ~ '"', busca.href)] if busca else []) + [(rotulo, None)] %}
+  {{ ui.trilha(trilha) }}
+  {{ ui.cabecalho(rotulo, [ui.status(situacao_ata(ata.status_ata, ata.fim_validade)), ata.unidade_gerenciadora], ata.objeto) }}
+
+  {{ ui.numeros([
+       {"rotulo": "Itens", "valor": n.itens|num if n.itens else ""},
+       {"rotulo": "Fornecedores", "valor": n.fornecedores|num if n.fornecedores else ""},
+       {"rotulo": "Valor registrado", "valor": n.valor|moeda},
+       {"rotulo": "Contratos gerados", "valor": n.contratos|num if n.contratos else ""},
+     ]) }}
+
+  {%- if licitacao %}
+  {%- set v_lic %}<a href="{{ url_licitacao(licitacao.id_licitacao) }}">{{ (licitacao.modalidade|modalidade ~ " " ~ (licitacao.licitacao or ""))|trim }}</a>{% endset %}
+  {%- else %}
+  {%- set v_lic = ata.licitacao_sigla|limpo %}
+  {%- endif %}
+  {%- set v_forn %}{% if n.fornecedores == 1 %}{% set f = fornecedores[0] %}{{ fornecedor_link(f.fornecedor, f.cnpj_norm) }}
+    {%- if f.cpf_cnpj is presente %}<br><span class="sec">{{ f.cpf_cnpj|doc_rotulo }} {{ f.cpf_cnpj|doc }}</span>{% endif %}{% endif %}{% endset %}
+  {#- Processos da ata: até MAX_PROCESSOS um por linha; o resto num <details>. -#}
+  {%- set procs = processos|map("processo")|select|list %}
+  {%- set MAX_PROCESSOS = 5 %}
+  {%- set v_proc %}
+    {%- for p in procs[:MAX_PROCESSOS] %}{% if not loop.first %}<br>{% endif %}{{ p }}{% endfor %}
+    {%- if procs|length > MAX_PROCESSOS %}
+    <details><summary>e mais {{ plural(procs|length - MAX_PROCESSOS, "processo", "processos") }}</summary>
+      {%- for p in procs[MAX_PROCESSOS:] %}{% if not loop.first %}<br>{% endif %}{{ p }}{% endfor %}</details>
+    {%- endif %}
+  {%- endset %}
+  {%- set ini, fim = ata.inicio_validade|data, ata.fim_validade|data %}
+  {%- set v_validade = (ini ~ " a " ~ fim) if (ini and fim) else (("Até " ~ fim) if fim else (("A partir de " ~ ini) if ini else "")) %}
+  {{ ui.ficha([
+       ("Órgão gerenciador", ata.unidade_gerenciadora),
+       ("Licitação de origem", v_lic),
+       ("Fornecedor", v_forn),
+       ("Validade", v_validade),
+       ("Critério de julgamento", ata.criterio_julgamento),
+       ("Processos" if procs|length > 1 else "Processo", v_proc),
+     ]) }}
+
+  {%- if varios %}
+  {% call ui.secao("Fornecedores", n.fornecedores, id="fornecedores") %}
+    {{ tabela_fornecedores(fornecedores) }}
+  {% endcall %}
+  {%- endif %}
+
+  {%- for nome, plural_, genero in [("contratos", "contratos", "m"), ("itens", "itens", "m"), ("orgaos", "órgãos", "m")] %}
+  {%- set rows = {"contratos": contratos, "itens": itens, "orgaos": orgaos}[nome] %}
+  {%- if rows %}
+  {% call ui.secao(nomes[nome], n[nome], id=nome) %}
+    {{ tabela(nome, rows) }}
+    {{ ui.ver_todos(url ~ "/" ~ nome, n[nome], plural_, genero) }}
+  {% endcall %}
+  {%- endif %}
+  {%- endfor %}
+{%- endif %}
+</div>
+{% endblock %}

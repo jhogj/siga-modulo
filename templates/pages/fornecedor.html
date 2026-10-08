@@ -1,0 +1,243 @@
+{#- Fornecedor. Dois modos: página (secao is none) e lista completa de uma seção. -#}
+{% extends "_base.html" %}
+{% import "_ui.html" as ui %}
+{% import "_linhas.html" as L %}
+
+{%- set f = fornecedor -%}
+{%- set rotulo = f.nome|limpo -%}
+{#- Documento exibido: sempre o cpf_cnpj. A chave (cnpj_norm) pode ser "F" + ID Forn e nunca é exibida. -#}
+{%- set documento = f.cpf_cnpj -%}
+{%- set doc_texto = (documento|doc_rotulo ~ " " ~ documento|doc) if documento is presente else "" -%}
+{%- set NOMES = {"contratos": "Contratos", "compras": "Compras", "licitacoes": "Licitações disputadas"} -%}
+
+{#- Coluna existe só se alguma linha visível tem dado nela. -#}
+{%- macro _tem(linhas, campo) -%}{% for r in linhas if r[campo] is presente %}{% if loop.first %}1{% endif %}{% endfor %}{%- endmacro -%}
+{#- Valor em R$: zero ou nulo fica em branco (nunca "R$ 0,00" no lugar de nulo). -#}
+{%- macro _tem_rs(linhas, campo) -%}{% for r in linhas if r[campo] is not none and r[campo] > 0 %}{% if loop.first %}1{% endif %}{% endfor %}{%- endmacro -%}
+{%- macro _rs(v) -%}{% if v is not none and v > 0 %}{{ v|moeda }}{% endif %}{%- endmacro -%}
+
+{%- macro tabela_contratos(linhas) -%}
+{%- set c_dt, c_org, c_obj = _tem(linhas, "dt_contratacao"), _tem(linhas, "unidade"), _tem(linhas, "objeto") -%}
+{%- set c_val = _tem_rs(linhas, "valor_total_contrato") -%}
+<div class="painel painel--tabela"><table class="tabela tabela--contratos">
+  <caption class="visualmente-oculto">Contratos</caption>
+  <thead><tr>
+    <th scope="col">Contrato</th>
+    {%- if c_dt %}<th scope="col">Data</th>{% endif %}
+    {%- if c_org %}<th scope="col">Órgão</th>{% endif %}
+    {%- if c_obj %}<th scope="col">Objeto</th>{% endif %}
+    {%- if c_val %}<th scope="col" class="num">Valor</th>{% endif %}
+    <th scope="col">Situação</th>
+  </tr></thead>
+  <tbody>
+  {%- for r in linhas %}
+  {%- set href = url_contrato(r.contratacao) %}
+  <tr>
+    <td class="curta">{% if href %}<a href="{{ href }}">{{ r.contratacao }}</a>{% else %}{{ r.contratacao }}{% endif %}</td>
+    {%- if c_dt %}<td class="curta">{{ r.dt_contratacao|data }}</td>{% endif %}
+    {%- if c_org %}<td class="curta">{{ L.orgao(r.unidade) }}</td>{% endif %}
+    {%- if c_obj %}<td class="longo">{% if r.objeto is presente %}{% if href %}<a class="clamp2" href="{{ href }}">{{ r.objeto }}</a>{% else %}{{ r.objeto }}{% endif %}{% endif %}</td>{% endif %}
+    {%- if c_val %}<td class="num">{{ _rs(r.valor_total_contrato) }}</td>{% endif %}
+    <td class="curta">{{ ui.status(situacao_contrato(r.status_contratacao, r.dt_fim_vigencia)) }}</td>
+  </tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- macro tabela_compras(linhas) -%}
+{%- set c_dt, c_org, c_tipo = _tem(linhas, "dt"), _tem(linhas, "unidade"), _tem(linhas, "afastamento") -%}
+{%- set c_val = _tem_rs(linhas, "valor") -%}
+<div class="painel painel--tabela"><table class="tabela tabela--compras">
+  <caption class="visualmente-oculto">Compras</caption>
+  <thead><tr>
+    <th scope="col">Processo</th>
+    {%- if c_dt %}<th scope="col">Data de aprovação</th>{% endif %}
+    {%- if c_org %}<th scope="col">Órgão</th>{% endif %}
+    {%- if c_tipo %}<th scope="col">Tipo de compra</th>{% endif %}
+    <th scope="col" class="num">Itens</th>
+    {%- if c_val %}<th scope="col" class="num">Valor</th>{% endif %}
+  </tr></thead>
+  <tbody>
+  {%- for r in linhas %}
+  {%- set href = url_compra(r.id_processo) %}
+  {%- set proc = r.processo|processo %}
+  <tr>
+    <td class="processo">{% if href %}<a href="{{ href }}">{{ proc or "Compra" }}</a>{% else %}{{ proc }}{% endif %}</td>
+    {%- if c_dt %}<td class="curta">{{ r.dt|data }}</td>{% endif %}
+    {%- if c_org %}<td class="curta">{{ L.orgao(r.unidade) }}</td>{% endif %}
+    {%- if c_tipo %}<td class="tipo">{{ r.afastamento|limpo }}</td>{% endif %}
+    <td class="num">{{ r.n_itens|num }}</td>
+    {%- if c_val %}<td class="num">{{ _rs(r.valor) }}</td>{% endif %}
+  </tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- macro tabela_licitacoes(linhas) -%}
+{%- set c_dt, c_org = _tem(linhas, "dt"), _tem(linhas, "unidade") -%}
+<div class="painel painel--tabela"><table class="tabela tabela--licitacoes">
+  <caption class="visualmente-oculto">Licitações disputadas</caption>
+  <thead><tr>
+    <th scope="col">Licitação</th>
+    {%- if c_dt %}<th scope="col">Data</th>{% endif %}
+    {%- if c_org %}<th scope="col">Órgão</th>{% endif %}
+    <th scope="col" class="num">Itens disputados</th>
+    <th scope="col" class="num">Itens vencidos</th>
+  </tr></thead>
+  <tbody>
+  {%- for r in linhas %}
+  {%- set nome = (r.modalidade|modalidade ~ " " ~ (r.licitacao|limpo))|trim or "Licitação" %}
+  <tr>
+    <td>{% set href = url_licitacao(r.id_lic) %}{% if href %}<a href="{{ href }}">{{ nome }}</a>{% else %}{{ nome }}{% endif %}</td>
+    {%- if c_dt %}<td class="curta">{{ r.dt|data }}</td>{% endif %}
+    {%- if c_org %}<td class="curta">{{ L.orgao(r.unidade) }}</td>{% endif %}
+    <td class="num">{{ r.disputados|num }}</td>
+    <td class="num">{{ r.vencidos|num }}</td>
+  </tr>
+  {%- endfor %}
+  </tbody>
+</table></div>
+{%- endmacro -%}
+
+{%- macro tabela(nome, linhas) -%}
+{%- if nome == "contratos" %}{{ tabela_contratos(linhas) }}
+{%- elif nome == "compras" %}{{ tabela_compras(linhas) }}
+{%- else %}{{ tabela_licitacoes(linhas) }}{% endif -%}
+{%- endmacro -%}
+
+{% block title %}{% if secao is not none %}{{ NOMES[secao] }} – {% endif %}{{ rotulo }} – SIGA · Radar RJ{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/pages/fornecedor.css">{% endblock %}
+{% block body_class %}pagina-fornecedor{% endblock %}
+
+{% block conteudo %}
+<div class="coluna">
+{%- if secao is not none %}
+  {#- Modo seção: lista completa paginada -#}
+  {{ ui.trilha([("SIGA", "/siga"), (rotulo, url_fornecedor(f.cnpj_norm)), (NOMES[secao], None)]) }}
+  {%- set titulo %}{{ NOMES[secao] }}<span class="secao__n">{{ pag.total|num }}</span>{% endset %}
+  {{ ui.cabecalho(titulo, [rotulo, doc_texto, ("Inclui " ~ plural(n_cancelados, "cancelado", "cancelados")) if n_cancelados else ""]) }}
+  {{ tabela(secao, linhas) }}
+  {{ ui.paginacao(pag, request) }}
+{%- else %}
+  {%- set trilha = [("SIGA", "/siga")] + ([('Resultados para "' ~ busca.q ~ '"', busca.href)] if busca else []) + [(rotulo, None)] %}
+  {{ ui.trilha(trilha) }}
+  {{ ui.cabecalho(rotulo, [doc_texto, local(f.cidade, f.uf), ui.status(f.situacao, alerta_fornecedor(f.situacao))]) }}
+
+  {#- Números. Contratos e valor contam só os não cancelados; a seção Contratos lista todos. -#}
+  {%- set ag = contratos_ag %}
+  {%- set cancelados = plural(ag.n_cancelados, "cancelado", "cancelados") %}
+  {%- set itens = [] %}
+  {%- if ag.n_total > 0 %}
+  {%- set _ = itens.append({"rotulo": "Contratos", "valor": ag.n_validos|num,
+        "nota": ("além de " ~ cancelados) if ag.n_cancelados > 0 else None}) %}
+  {%- endif %}
+  {%- if ag.n_validos > 0 and ag.valor is not none and ag.valor > 0 %}
+  {%- set _ = itens.append({"rotulo": "Valor contratado", "valor": ag.valor|moeda,
+        "nota": ("não inclui " ~ ("o cancelado" if ag.n_cancelados == 1 else "os cancelados")) if ag.n_cancelados > 0 else None}) %}
+  {%- endif %}
+  {%- if n_compras > 0 %}{% set _ = itens.append({"rotulo": "Compras", "valor": n_compras|num}) %}{% endif %}
+  {%- if lic.n > 0 %}
+  {%- set _ = itens.append({"rotulo": "Licitações disputadas", "valor": lic.n|num,
+        "nota": ("venceu itens em " ~ plural(lic.vencidas, "licitação", "licitações")) if lic.vencidas > 0 else "nenhum item vencido"}) %}
+  {%- endif %}
+  {{ ui.numeros(itens) }}
+
+  {#- Aviso de sanção vigente (a mais recente) -#}
+  {%- if sancao_aviso %}
+  {%- set s = sancao_aviso %}
+  {%- set pen = s.enquadramento_legal|penalidade %}
+  {%- set fim = s.dt_final|data %}
+  {%- call ui.aviso() %}
+    {%- if n_vigentes > 1 -%}
+    <strong class="status--alerta">{{ plural(n_vigentes, "sanção vigente", "sanções vigentes") }}.</strong> A mais recente: {{ pen or "Sanção" }}
+    {%- else -%}
+    <strong class="status--alerta">Sanção vigente{% if pen %}:{% endif %}</strong>{% if pen %} {{ pen }}{% endif %}
+    {%- endif %} {{ ("até " ~ fim) if fim else "por prazo indeterminado" }}
+    {%- if s.orgao_apenador is presente %}, aplicada por {{ s.orgao_apenador|limpo }}{% endif %}
+    {%- if s.dt_efetivacao|data %} em {{ s.dt_efetivacao|data }}{% endif %}.
+    {%- set motivo = s.motivo|limpo %}{% if motivo %} {{ motivo }}{% if motivo[-1] not in ".!?" %}.{% endif %}{% endif %} <a href="#sancoes">Ver sanções</a>
+  {%- endcall %}
+  {%- endif %}
+
+  {#- Ficha -#}
+  {%- set n_sanc = sancoes|length %}
+  {%- set v_sanc %}
+    {%- if n_sanc == 0 %}Nenhuma registrada no SIGA
+    {%- else %}<a href="#sancoes">
+      {%- set partes = [] %}
+      {%- if n_vigentes %}{% set _ = partes.append(plural(n_vigentes, "vigente", "vigentes")) %}{% endif %}
+      {%- if n_sanc - n_vigentes %}{% set _ = partes.append(plural(n_sanc - n_vigentes, "anterior", "anteriores")) %}{% endif %}
+      {{- partes|join(" e ") }}</a>
+    {%- endif %}
+  {%- endset %}
+  {{ ui.ficha([
+      (documento|doc_rotulo, documento|doc),
+      ("Natureza jurídica", f.tipo_empresarial|natureza_juridica),
+      ("Porte", "Microempresa ou empresa de pequeno porte" if f.me_epp == "Sim" else ""),
+      ("Município", local(f.cidade, f.uf)),
+      ("Situação no cadastro", ui.status(f.situacao, alerta_fornecedor(f.situacao))),
+      ("Cadastrado no SIGA em", f.data_cadastro|data),
+      ("Sanções", v_sanc),
+  ]) }}
+
+  {#- 1. Sanções -#}
+  {%- if sancoes %}
+  {%- call ui.secao("Sanções", n_sanc, id="sancoes") %}
+  <div class="painel"><ol class="lista lista--sancoes">
+    {%- for s in sancoes %}
+    {%- set pen = s.enquadramento_legal|penalidade %}
+    {%- set motivo = s.motivo|limpo %}
+    {%- set titulo = (pen ~ " – " ~ motivo) if (pen and motivo) else (motivo or pen or "Sanção") %}
+    {%- set ini, fim, efet = s.dt_inicio|data, s.dt_final|data, s.dt_efetivacao|data %}
+    {%- set aplicada %}{% if s.orgao_apenador is presente %}Aplicada por {{ L.orgao(s.orgao_apenador) }}{% if efet %} em {{ efet }}{% endif %}{% elif efet %}Aplicada em {{ efet }}{% endif %}{% endset %}
+    {%- set periodo = ("Período " ~ ini ~ " a " ~ fim) if (ini and fim) else (("Início em " ~ ini) if ini else "") %}
+    {%- set detalhes %}{% if s.justificativa is presente %}<details><summary>Justificativa e publicação</summary><p>{{ s.justificativa|trim }}</p></details>{% endif %}{% endset %}
+    {{ ui.linha(None, titulo,
+         meta=[aplicada, periodo, ("Processo " ~ s.numero_processo|processo) if s.numero_processo is presente else ""],
+         sub=ui.status(s.situacao),
+         detalhes=detalhes) }}
+    {%- endfor %}
+  </ol></div>
+  {%- endcall %}
+  {%- endif %}
+
+  {#- 2. Principais órgãos contratantes -#}
+  {%- if orgaos %}
+  {%- set c_val = _tem_rs(orgaos, "v") %}
+  {%- call ui.secao("Principais órgãos contratantes", orgaos|length) %}
+  <div class="painel painel--tabela"><table class="tabela tabela--orgaos">
+    <caption class="visualmente-oculto">Principais órgãos contratantes</caption>
+    <thead><tr><th scope="col">Órgão</th><th scope="col" class="num">Contratos</th>{% if c_val %}<th scope="col" class="num">Valor</th>{% endif %}</tr></thead>
+    <tbody>
+    {%- for o in orgaos %}
+    <tr><td>{{ o.unidade if o.unidade is presente else "" }}</td><td class="num">{{ o.n|num }}</td>{% if c_val %}<td class="num">{{ _rs(o.v) }}</td>{% endif %}</tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- endcall %}
+  {%- endif %}
+
+  {#- 3–5. Contratos, compras e licitações disputadas (prévia + "Ver todos") -#}
+  {%- for nome, linhas_s, total, plural_s, genero in [
+        ("contratos", contratos, ag.n_total, "contratos", "m"),
+        ("compras", compras, n_compras, "compras", "f"),
+        ("licitacoes", licitacoes, lic.n, "licitações", "f")] if linhas_s %}
+  {%- call ui.secao(NOMES[nome], total, id=nome,
+        nota=("Inclui " ~ cancelados) if (nome == "contratos" and ag.n_cancelados > 0) else None) %}
+  {{ tabela(nome, linhas_s) }}
+  {{ ui.ver_todos(url_fornecedor(f.cnpj_norm) ~ "/" ~ nome, total, plural_s, genero) }}
+  {%- endcall %}
+  {%- endfor %}
+
+  {#- 6. Áreas de fornecimento cadastradas: texto corrido, sem chips -#}
+  {%- if areas %}
+  {%- set lista = areas | join(", ") %}
+  {%- call ui.secao("Áreas de fornecimento cadastradas", id="areas") %}
+  <p class="areas">{{ lista }}{% if areas_mais %} e mais {{ areas_mais|num }}{% endif %}.</p>
+  {%- endcall %}
+  {%- endif %}
+{%- endif %}
+</div>
+{% endblock %}
